@@ -12,7 +12,9 @@ import {
   Settings,
   ExternalLink,
   Layers,
+  LogOut,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { Wordmark } from '@/components/Wordmark';
 
 type LucideIcon = typeof Calendar;
@@ -63,8 +65,15 @@ const MOBILE: NavItem[] = [
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const isActive = (href: string, exact?: boolean) =>
     exact ? pathname === href : pathname.startsWith(href);
+
+  async function logout() {
+    await fetch('/api/admin/logout', { method: 'POST' });
+    router.replace('/admin/login');
+    router.refresh();
+  }
 
   return (
     <div className="md:flex md:min-h-dvh">
@@ -131,6 +140,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
             Voir le site
           </Link>
+          <button
+            onClick={logout}
+            className="flex items-center gap-3 px-0 py-2 text-[12px] w-full text-left"
+            style={{ color: 'rgb(var(--muted))' }}
+          >
+            <LogOut className="h-3.5 w-3.5" strokeWidth={1.5} />
+            Déconnexion
+          </button>
         </div>
       </aside>
 
