@@ -1,40 +1,61 @@
-# Salon — Atelier de coiffure SaaS
+# MUSE l&rsquo;atelier
 
-Site vitrine + back-office complet pour un atelier de coiffure :
-RDV en ligne, gestion clients, stock, ventes (POS), équipe.
+Site vitrine + back-office complet pour MUSE l&rsquo;atelier — coiffure,
+onglerie et soins, à Abidjan.
+
+## Direction artistique
+
+**BCBG / Old Money.** Noir d&rsquo;encre, bone white, crème chaude.
+Typographie reine : **Bodoni Moda** (display, italique éditorial) + **Inter** (body).
+Hairlines, beaucoup d&rsquo;air, pas de dégradés tape-à-l&rsquo;œil.
 
 ## Architecture
 
 ```
-┌─────────────────────────┐
-│ Storefront public       │  /             ← landing
-│                         │  /reserver     ← booking
-│                         │
-│ Admin SaaS              │  /admin        ← dashboard
-│                         │  /admin/agenda
-│                         │  /admin/clients
-│                         │  /admin/services
-│                         │  /admin/stock
-│                         │  /admin/ventes
-└─────────────┬───────────┘
-              │
-┌─────────────▼───────────┐
-│ Supabase                │
-│ services, clients,      │
-│ appointments, products, │
-│ sales, sale_items,      │
-│ staff, salon_settings   │
-└─────────────────────────┘
+┌─────────────────────────────────────┐
+│ Storefront public                    │
+│   /                                  │  ← landing éditoriale
+│   /reserver                          │  ← booking (placeholder WA)
+│                                      │
+│ Admin SaaS                           │
+│   /admin                             │  ← tableau de bord
+│   /admin/agenda                      │
+│   /admin/ventes                      │  ── Activité
+│                                      │
+│   /admin/clients                     │
+│   /admin/journey                     │  ── Clients (parcours, journey)
+│                                      │
+│   /admin/secteurs                    │
+│   /admin/services                    │  ── Catalogue
+│   /admin/stock                       │
+│                                      │
+│   /admin/depenses                    │
+│   /admin/comptabilite                │  ── Finances
+│                                      │
+│   /admin/parametres                  │
+└──────────────┬──────────────────────┘
+               │
+┌──────────────▼──────────────────────┐
+│ Supabase                             │
+│  sectors → categories →              │
+│    services / products               │
+│  clients · client_events             │
+│  appointments · sales · sale_items   │
+│  expense_categories · expenses       │
+│  staff · salon_settings              │
+│  view monthly_pnl, clients_at_risk   │
+└─────────────────────────────────────┘
 ```
 
 ## Setup
 
 ### 1. Supabase
 
-1. https://supabase.com → New Project (region : Frankfurt ou Paris).
-2. **Important** : crée un projet **dédié au salon** (ne réutilise pas celui de Pilote).
+1. https://supabase.com → New Project (région : Frankfurt ou Paris).
+2. Crée un projet **dédié à MUSE** (ne réutilise pas celui de Pilote).
 3. SQL Editor → coller `supabase/migrations/001_init.sql` → Run.
-4. Project Settings → API → récupère `Project URL`, `anon public`, `service_role`.
+4. Coller `supabase/migrations/002_sectors_accounting.sql` → Run.
+5. Project Settings → API → récupère `Project URL`, `anon`, `service_role`.
 
 ### 2. Web local
 
@@ -48,34 +69,40 @@ npm run dev
 
 Ouvre http://localhost:3000
 
-- `/` → site vitrine
-- `/reserver` → page de réservation (placeholder pour l'instant)
-- `/admin` → dashboard admin
+- `/` → site vitrine éditorial
+- `/reserver` → page de réservation
+- `/admin` → tableau de bord SaaS
+
+## Modèle de données — points clés
+
+- **`sectors`** — Coiffure, Onglerie, … (extensible). Chaque secteur regroupe ses propres catégories, services et produits.
+- **`categories`** — Sous-divisions par secteur (ex Coiffure : Entretiens, Couleur, Tresses, Soins, Mèches, Articles). Champ `kind` = `'service' | 'product'`.
+- **`clients`** — avec `acquisition_source`, `referrer_client_id`, `tags` pour le CRM.
+- **`client_events`** — timeline du parcours client (created → first_visit → visit → review → lost).
+- **`expenses`** + `expense_categories` — comptabilité dépenses.
+- **vue `monthly_pnl`** — chiffre · dépenses · bénéfice par mois.
+- **vue `clients_at_risk`** — clientes pas vues depuis 90 à 180 jours.
 
 ## Stack
 
-- **Next.js 15** (App Router)
-- **TypeScript** strict
-- **Tailwind CSS** + design system custom (`card-3d`, `glass`, `text-gold`, `eyebrow`…)
-- **Supabase** Postgres + Realtime + Auth
-- **Lucide** pour les icônes
-- **Inter** (sans) + **Cormorant Garamond** (display, italique élégant)
+Next.js 15 · TypeScript strict · Tailwind · Supabase · Lucide icons ·
+Bodoni Moda + Inter (Google Fonts).
 
 ## Roadmap
 
-- [x] Storefront landing (Hero, Services, Galerie, Équipe, CTA, Footer)
-- [x] Page /reserver (placeholder WhatsApp)
-- [x] Schema Supabase initial
-- [x] Admin shell + dashboard placeholder
-- [ ] Booking en ligne avec créneaux disponibles (server action)
-- [ ] Admin agenda (drag-resize comme Google Calendar)
-- [ ] Admin clients (liste + fiche + historique)
-- [ ] Admin POS (ajout panier, paiement, ticket)
-- [ ] Admin stock (CRUD + alertes bas)
-- [ ] Auth Supabase pour l'admin (magic link)
-- [ ] Notifs SMS/WhatsApp de confirmation RDV
-- [ ] Multi-tenant (si pertinent plus tard)
+- [x] Storefront éditorial (Hero, Secteurs, Prestations, Galerie, Maison, CTA, Footer)
+- [x] Schema Supabase complet (multi-secteur, compta, journey CRM)
+- [x] Admin shell organisé en 4 sections (Activité, Clients, Catalogue, Finances)
+- [ ] Booking en ligne (server action, créneaux dispo)
+- [ ] Auth admin (Supabase magic link)
+- [ ] Admin agenda (drag-resize)
+- [ ] Admin clients + fiche cliente avec timeline journey
+- [ ] Admin POS (panier, paiement, ticket)
+- [ ] Admin stock (CRUD + alertes)
+- [ ] Admin comptabilité (P&L mensuel, export)
+- [ ] Notifs SMS/WhatsApp confirmation RDV
+- [ ] Anniversaires automatiques
 
 ## Déploiement
 
-**Vercel** : un projet dédié, Root Directory `salon/web`.
+Vercel · projet dédié · Root Directory `salon/web`.
