@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
-import { Wordmark } from '@/components/Wordmark';
+import { ReservationWizard } from '@/components/reserver/ReservationWizard';
 
 export default function ReserverPage() {
   return (
@@ -19,36 +19,21 @@ export default function ReserverPage() {
             Retour
           </Link>
 
-          <div className="surface px-8 py-16 md:px-16 md:py-24 text-center">
-            <Wordmark size="md" href={null} />
+          <div className="eyebrow">Réservation</div>
+          <h1 className="font-display mt-4 text-4xl font-medium leading-tight tracking-tight md:text-6xl">
+            Réservez votre <span className="italic font-normal">moment</span>.
+          </h1>
+          <p
+            className="mt-4 max-w-xl text-[15px] leading-relaxed"
+            style={{ color: 'rgb(var(--ink-soft))' }}
+          >
+            Choisissez votre prestation, votre créneau, laissez-nous vos
+            coordonnées. Une confirmation arrive par WhatsApp dans la foulée.
+          </p>
 
-            <div className="eyebrow justify-center mt-12">Réservation</div>
-            <h1 className="font-display mt-8 text-4xl font-medium leading-tight tracking-tight md:text-6xl">
-              Bientôt en ligne.
-            </h1>
-            <p
-              className="mx-auto mt-6 max-w-md text-[15px] leading-relaxed"
-              style={{ color: 'rgb(var(--ink-soft))' }}
-            >
-              Le formulaire de réservation arrive très vite. Pour l&rsquo;instant,
-              contactez-nous directement par WhatsApp ou téléphone — réponse
-              en quelques minutes.
-            </p>
+          <div className="hairline my-10" />
 
-            <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-              <a
-                href="https://wa.me/22500000000?text=Bonjour%2C%20je%20souhaite%20prendre%20rendez-vous%20chez%20MUSE%20l%27atelier"
-                target="_blank"
-                rel="noreferrer"
-                className="btn-primary"
-              >
-                Réserver par WhatsApp
-              </a>
-              <a href="tel:+22500000000" className="btn-outline">
-                Nous appeler
-              </a>
-            </div>
-          </div>
+          <ReservationWizard />
         </div>
       </main>
       <Footer />
