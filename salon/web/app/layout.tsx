@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Cormorant_Garamond } from 'next/font/google';
+import { Inter, Bodoni_Moda } from 'next/font/google';
 import './globals.css';
 
 const sans = Inter({
@@ -8,7 +8,7 @@ const sans = Inter({
   display: 'swap',
 });
 
-const display = Cormorant_Garamond({
+const display = Bodoni_Moda({
   subsets: ['latin'],
   variable: '--font-display',
   display: 'swap',
@@ -16,14 +16,15 @@ const display = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: 'Salon — Atelier de coiffure',
-  description: 'Coiffure, soin et beauté. Réservez votre rendez-vous en ligne.',
+  title: "MUSE l'atelier — Coiffure & Onglerie",
+  description:
+    "MUSE l'atelier — Coiffure, onglerie et soins. Une maison signature à Abidjan, dédiée à votre élégance.",
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#fcf8f0' },
-    { media: '(prefers-color-scheme: dark)', color: '#0e0a06' },
+    { media: '(prefers-color-scheme: light)', color: '#f7f5ef' },
+    { media: '(prefers-color-scheme: dark)', color: '#0a0807' },
   ],
   width: 'device-width',
   initialScale: 1,
@@ -33,7 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr" className={`${sans.variable} ${display.variable}`}>
       <body
-        className="min-h-dvh font-sans"
+        className="min-h-dvh font-sans antialiased"
         style={{ fontFamily: 'var(--font-sans), system-ui, sans-serif' }}
       >
         {children}

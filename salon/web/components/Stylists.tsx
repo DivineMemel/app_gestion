@@ -1,32 +1,60 @@
 const TEAM = [
-  { name: 'Awa', role: 'Coloriste senior', grad: 'linear-gradient(135deg, #c8932a, #ecda99)' },
-  { name: 'Maïmouna', role: 'Spécialiste tresses', grad: 'linear-gradient(135deg, #2c1f10, #c8932a)' },
-  { name: 'Nadia', role: 'Coiffeuse événementiel', grad: 'linear-gradient(135deg, #4a3520, #f5edcc)' },
+  { name: 'Awa', role: 'Coloriste senior', sector: 'Coiffure' },
+  { name: 'Maïmouna', role: 'Spécialiste tresses', sector: 'Coiffure' },
+  { name: 'Nadia', role: 'Onglerie & nail art', sector: 'Onglerie' },
 ];
 
 export function Stylists() {
   return (
-    <section id="equipe" className="relative py-20 md:py-32">
-      <div className="mx-auto max-w-6xl px-4">
-        <div className="mx-auto max-w-2xl text-center">
-          <div className="eyebrow justify-center mb-5">L'équipe</div>
-          <h2 className="font-display text-4xl font-medium tracking-tight md:text-5xl">
-            Des mains <span className="text-gold italic">expertes</span>, un œil affûté.
-          </h2>
+    <section id="maison" className="py-24 md:py-40">
+      <div className="mx-auto max-w-7xl px-6">
+        <div className="grid gap-10 md:grid-cols-12">
+          <div className="md:col-span-5">
+            <div className="eyebrow">La maison</div>
+            <h2 className="font-display mt-6 text-4xl font-medium leading-tight tracking-tight md:text-6xl">
+              Des mains
+              <br />
+              <span className="italic font-normal">expertes.</span>
+            </h2>
+          </div>
+          <p
+            className="max-w-md text-[15px] leading-relaxed md:col-span-6 md:col-start-7 md:self-end"
+            style={{ color: 'rgb(var(--ink-soft))' }}
+          >
+            Une équipe restreinte et formée — pour que chaque cliente reçoive
+            l&rsquo;attention qu&rsquo;elle mérite. Pas de rotation, pas de
+            précipitation.
+          </p>
         </div>
 
-        <div className="mt-12 grid gap-6 sm:grid-cols-2 md:grid-cols-3 stagger">
-          {TEAM.map((p) => (
-            <div key={p.name} className="card-3d overflow-hidden lift">
-              <div className="relative aspect-[4/5] overflow-hidden">
-                <div className="absolute inset-0" style={{ background: p.grad }} />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+        <div className="mt-16 grid gap-px bg-[rgb(var(--line))] md:grid-cols-3">
+          {TEAM.map((p, i) => (
+            <article
+              key={p.name}
+              className="bg-[rgb(var(--bg))] p-8 md:p-10"
+            >
+              <div className="img-bw aspect-[3/4]" />
+              <div className="mt-6 flex items-baseline justify-between">
+                <span className="section-number">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <span
+                  className="text-[10px] uppercase tracking-[0.24em]"
+                  style={{ color: 'rgb(var(--muted))' }}
+                >
+                  {p.sector}
+                </span>
               </div>
-              <div className="p-5">
-                <div className="font-display text-2xl font-medium">{p.name}</div>
-                <div className="text-sm text-muted">{p.role}</div>
+              <h3 className="font-display mt-3 text-3xl font-medium tracking-tight">
+                {p.name}
+              </h3>
+              <div
+                className="mt-1 text-[12px]"
+                style={{ color: 'rgb(var(--muted))' }}
+              >
+                {p.role}
               </div>
-            </div>
+            </article>
           ))}
         </div>
       </div>

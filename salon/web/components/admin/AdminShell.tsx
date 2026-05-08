@@ -5,120 +5,177 @@ import {
   LayoutDashboard,
   Calendar,
   Users,
-  Scissors,
   Package,
   Receipt,
+  Wallet,
+  Tags,
   Settings,
   ExternalLink,
+  Layers,
 } from 'lucide-react';
+import { Wordmark } from '@/components/Wordmark';
 
-const NAV = [
+type LucideIcon = typeof Calendar;
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  exact?: boolean;
+};
+
+const NAV_ACTIVITY: NavItem[] = [
   { href: '/admin', label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
   { href: '/admin/agenda', label: 'Agenda', icon: Calendar },
-  { href: '/admin/clients', label: 'Clients', icon: Users },
-  { href: '/admin/services', label: 'Services', icon: Scissors },
-  { href: '/admin/stock', label: 'Stock', icon: Package },
   { href: '/admin/ventes', label: 'Ventes', icon: Receipt },
-  { href: '/admin/parametres', label: 'Paramètres', icon: Settings },
+];
+
+const NAV_RELATIONS: NavItem[] = [
+  { href: '/admin/clients', label: 'Clients', icon: Users },
+  { href: '/admin/journey', label: 'Parcours client', icon: Layers },
+];
+
+const NAV_CATALOG: NavItem[] = [
+  { href: '/admin/secteurs', label: 'Secteurs', icon: Tags },
+  { href: '/admin/services', label: 'Services', icon: Calendar },
+  { href: '/admin/stock', label: 'Stock', icon: Package },
+];
+
+const NAV_FINANCE: NavItem[] = [
+  { href: '/admin/depenses', label: 'Dépenses', icon: Wallet },
+  { href: '/admin/comptabilite', label: 'Comptabilité', icon: Receipt },
+];
+
+const SECTIONS = [
+  { title: 'Activité', items: NAV_ACTIVITY },
+  { title: 'Clients', items: NAV_RELATIONS },
+  { title: 'Catalogue', items: NAV_CATALOG },
+  { title: 'Finances', items: NAV_FINANCE },
+];
+
+const MOBILE: NavItem[] = [
+  { href: '/admin', label: 'Bord', icon: LayoutDashboard, exact: true },
+  { href: '/admin/agenda', label: 'Agenda', icon: Calendar },
+  { href: '/admin/clients', label: 'Clients', icon: Users },
+  { href: '/admin/ventes', label: 'Ventes', icon: Receipt },
+  { href: '/admin/depenses', label: 'Dépenses', icon: Wallet },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const isActive = (href: string, exact?: boolean) =>
+    exact ? pathname === href : pathname.startsWith(href);
 
   return (
     <div className="md:flex md:min-h-dvh">
-      <aside className="hidden md:flex md:w-64 md:flex-col md:border-r md:border-[rgb(var(--border))] md:px-3 md:py-4">
-        <Link href="/admin" className="flex items-center gap-2.5 px-3 py-2">
-          <div
-            className="grid h-9 w-9 place-items-center rounded-xl text-white"
-            style={{
-              background: 'linear-gradient(135deg, #c8932a, #d6a937)',
-              boxShadow:
-                'inset 0 1px 0 rgba(255,245,200,0.4), 0 6px 16px -4px rgba(196,147,42,0.45)',
-            }}
-          >
-            <span className="font-display text-lg font-semibold">S</span>
-          </div>
-          <div className="leading-tight">
-            <div className="font-display text-lg font-semibold">Salon</div>
-            <div className="text-[10px] text-muted -mt-0.5">Admin</div>
-          </div>
-        </Link>
+      <aside
+        className="hidden md:flex md:w-64 md:flex-col md:border-r md:px-3 md:py-6"
+        style={{ borderColor: 'rgb(var(--line))' }}
+      >
+        <div className="px-3 pb-2">
+          <Wordmark size="sm" href="/admin" />
+        </div>
 
-        <nav className="mt-6 space-y-1">
-          {NAV.map(({ href, label, icon: Icon, exact }) => {
-            const active = exact ? pathname === href : pathname.startsWith(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={`group relative flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-all ${
-                  active
-                    ? 'text-[rgb(var(--primary-fg))] font-medium'
-                    : 'text-muted hover:text-[rgb(var(--fg))] hover:bg-[rgb(var(--surface-2))]'
-                }`}
+        <div className="mt-8 space-y-7">
+          {SECTIONS.map((section) => (
+            <div key={section.title}>
+              <div
+                className="px-3 mb-2 text-[10px] uppercase tracking-[0.24em]"
+                style={{ color: 'rgb(var(--muted))' }}
               >
-                {active && (
-                  <span
-                    className="absolute inset-0 rounded-xl"
-                    style={{
-                      background: 'linear-gradient(135deg, #c8932a, #d6a937)',
-                      boxShadow:
-                        'inset 0 1px 0 rgba(255,245,200,0.4), 0 6px 16px -4px rgba(196,147,42,0.45)',
-                    }}
-                  />
-                )}
-                <Icon className="relative h-4 w-4" />
-                <span className="relative">{label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+                {section.title}
+              </div>
+              <nav className="space-y-px">
+                {section.items.map(({ href, label, icon: Icon, exact }) => {
+                  const active = isActive(href, exact);
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      className={`flex items-center gap-3 px-3 py-2 text-[13px] transition-colors ${
+                        active
+                          ? 'font-medium'
+                          : 'hover:bg-[rgb(var(--surface-2))]'
+                      }`}
+                      style={{
+                        color: active
+                          ? 'rgb(var(--ink))'
+                          : 'rgb(var(--ink-soft))',
+                        background: active ? 'rgb(var(--surface-2))' : 'transparent',
+                      }}
+                    >
+                      <Icon className="h-4 w-4" strokeWidth={1.5} />
+                      <span>{label}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+          ))}
+        </div>
 
-        <div className="mt-auto px-3 pt-4">
+        <div className="mt-auto border-t pt-4 px-3 space-y-1" style={{ borderColor: 'rgb(var(--line))' }}>
+          <Link
+            href="/admin/parametres"
+            className="flex items-center gap-3 px-0 py-2 text-[12px] hover:opacity-100 transition-opacity"
+            style={{ color: 'rgb(var(--muted))' }}
+          >
+            <Settings className="h-3.5 w-3.5" strokeWidth={1.5} />
+            Paramètres
+          </Link>
           <Link
             href="/"
-            className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-muted hover:text-[rgb(var(--fg))] hover:bg-[rgb(var(--surface-2))]"
+            className="flex items-center gap-3 px-0 py-2 text-[12px]"
+            style={{ color: 'rgb(var(--muted))' }}
           >
-            <ExternalLink className="h-3.5 w-3.5" />
-            Voir le site public
+            <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
+            Voir le site
           </Link>
         </div>
       </aside>
 
       <div className="flex min-h-dvh flex-1 flex-col">
-        <header className="md:hidden sticky top-0 z-30 glass border-b border-[rgb(var(--border))]">
-          <div className="flex items-center gap-3 px-4 py-3">
-            <Link href="/admin" className="flex items-center gap-2">
-              <div
-                className="grid h-8 w-8 place-items-center rounded-lg text-white"
-                style={{ background: 'linear-gradient(135deg, #c8932a, #d6a937)' }}
-              >
-                <span className="font-display text-base font-semibold">S</span>
-              </div>
-              <div className="font-display text-base font-semibold">Salon · Admin</div>
-            </Link>
+        {/* Mobile header */}
+        <header
+          className="md:hidden sticky top-0 z-30 glass border-b"
+          style={{ borderColor: 'rgb(var(--line))' }}
+        >
+          <div className="flex items-center justify-between px-4 py-3">
+            <Wordmark size="sm" href="/admin" />
+            <span
+              className="text-[10px] uppercase tracking-[0.24em]"
+              style={{ color: 'rgb(var(--muted))' }}
+            >
+              Admin
+            </span>
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 pb-24 md:pb-8">
+        <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8 pb-28 md:pb-12">
           {children}
         </main>
 
-        <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 glass border-t border-[rgb(var(--border))]">
+        {/* Mobile bottom nav */}
+        <nav
+          className="md:hidden fixed bottom-0 inset-x-0 z-30 glass border-t"
+          style={{ borderColor: 'rgb(var(--line))' }}
+        >
           <div className="grid grid-cols-5">
-            {NAV.slice(0, 5).map(({ href, label, icon: Icon, exact }) => {
-              const active = exact ? pathname === href : pathname.startsWith(href);
+            {MOBILE.map(({ href, label, icon: Icon, exact }) => {
+              const active = isActive(href, exact);
               return (
                 <Link
                   key={href}
                   href={href}
-                  className={`flex flex-col items-center gap-0.5 py-2.5 text-[10px] transition-colors ${
-                    active ? 'text-[rgb(var(--primary))]' : 'text-muted'
-                  }`}
+                  className="flex flex-col items-center gap-1 py-2.5"
+                  style={{
+                    color: active ? 'rgb(var(--ink))' : 'rgb(var(--muted))',
+                  }}
                 >
-                  <Icon className="h-5 w-5" />
-                  <span className="truncate">{label}</span>
+                  <Icon className="h-4 w-4" strokeWidth={1.5} />
+                  <span className="text-[9px] uppercase tracking-[0.16em]">
+                    {label}
+                  </span>
                 </Link>
               );
             })}
