@@ -8,3 +8,11 @@ export const supabase = createClient(url, anon, {
   auth: { persistSession: false },
   realtime: { params: { eventsPerSecond: 5 } },
 });
+
+/**
+ * Génère un nom de canal unique. À utiliser à la place d'un nom statique
+ * pour éviter les conflits en React StrictMode (dev) qui mount/cleanup deux fois.
+ */
+export function uniqueChannel(prefix: string) {
+  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+}

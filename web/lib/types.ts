@@ -12,6 +12,17 @@ export type Client = {
   phone: string;
   name: string | null;
   notes: string | null;
+  created_at: string;
+  last_seen_at: string;
+  auto_reply_sent: boolean;
+};
+
+export type AppSettings = {
+  id: number;
+  auto_reply_enabled: boolean;
+  auto_reply_message: string;
+  business_name: string | null;
+  updated_at: string;
 };
 
 export type MessageRow = {
@@ -46,5 +57,6 @@ export type WhatsAppStatus = {
   qr_code: string | null;
   connected: boolean;
   phone: string | null;
+  disconnect_requested: boolean;
   updated_at: string;
 };
