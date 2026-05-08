@@ -1,15 +1,28 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { Plus, Power, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Category } from '@/lib/types';
 
+const PRESET_COLORS = [
+  '#6366f1',
+  '#0ea5e9',
+  '#10b981',
+  '#f59e0b',
+  '#ef4444',
+  '#ec4899',
+  '#8b5cf6',
+  '#64748b',
+];
+
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     slug: '',
     label: '',
     description: '',
-    color: '#6366f1',
+    color: PRESET_COLORS[0],
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +56,8 @@ export default function CategoriesPage() {
       setError(err.message);
       return;
     }
-    setForm({ slug: '', label: '', description: '', color: '#6366f1' });
+    setForm({ slug: '', label: '', description: '', color: PRESET_COLORS[0] });
+    setShowForm(false);
     load();
   }
 
@@ -53,77 +67,141 @@ export default function CategoriesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-xl font-semibold">Catégories</h1>
-
-      <form
-        onSubmit={add}
-        className="space-y-2 rounded-xl border border-slate-200 dark:border-slate-800 p-3 bg-white dark:bg-slate-900"
-      >
-        <div className="grid grid-cols-2 gap-2">
-          <input
-            placeholder="Slug (ex: peinture)"
-            value={form.slug}
-            onChange={(e) => setForm({ ...form, slug: e.target.value })}
-            className="px-3 py-2 rounded-md border border-slate-300 dark:border-slate-700 bg-transparent text-sm"
-          />
-          <input
-            placeholder="Label affiché"
-            value={form.label}
-            onChange={(e) => setForm({ ...form, label: e.target.value })}
-            className="px-3 py-2 rounded-md border border-slate-300 dark:border-slate-700 bg-transparent text-sm"
-          />
+    <div className="space-y-5">
+      <header className="flex items-end justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Catégories</h1>
+          <p className="text-sm text-muted">
+            Personnalise les types de demandes que tu reçois.
+          </p>
         </div>
-        <textarea
-          placeholder="Description (aide pour la classification IA — ex: 'travaux de peinture intérieure et extérieure')"
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-          className="w-full px-3 py-2 rounded-md border border-slate-300 dark:border-slate-700 bg-transparent text-sm"
-          rows={2}
-        />
-        <div className="flex items-center gap-2">
-          <input
-            type="color"
-            value={form.color}
-            onChange={(e) => setForm({ ...form, color: e.target.value })}
-            className="h-9 w-14 rounded"
-          />
-          <button
-            type="submit"
-            className="ml-auto px-4 py-2 rounded-md bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-sm"
-          >
-            Ajouter
-          </button>
-        </div>
-        {error && <div className="text-sm text-red-600">{error}</div>}
-      </form>
+        <button
+          onClick={() => setShowForm((v) => !v)}
+          className="btn-primary"
+        >
+          <Plus className="h-4 w-4" />
+          Ajouter
+        </button>
+      </header>
 
-      <ul className="space-y-2">
+      {showForm && (
+        <form
+          onSubmit={add}
+          className="surface space-y-3 rounded-xl p-4 animate-in"
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="text-xs font-medium text-muted">Label</label>
+              <input
+                placeholder="ex: Peinture"
+                value={form.label}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    label: e.target.value,
+                    slug: form.slug || e.target.value.toLowerCase().replace(/\s+/g, '_'),
+                  })
+                }
+                className="input mt-1"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted">Slug technique</label>
+              <input
+                placeholder="ex: peinture"
+                value={form.slug}
+                onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                className="input mt-1 font-mono text-xs"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted">
+              Description (aide l'IA à classifier)
+            </label>
+            <textarea
+              placeholder="ex: Travaux de peinture intérieure et extérieure, ravalement de façade…"
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              className="input mt-1 resize-none"
+              rows={2}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted">Couleur</label>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {PRESET_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setForm({ ...form, color: c })}
+                  className={`h-7 w-7 rounded-full transition-transform ${
+                    form.color === c ? 'scale-110 ring-2 ring-offset-2 ring-offset-[rgb(var(--surface))]' : ''
+                  }`}
+                  style={{
+                    backgroundColor: c,
+                    boxShadow: form.color === c ? `0 0 0 2px ${c}` : 'none',
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/30 dark:text-red-300">
+              <AlertCircle className="h-3.5 w-3.5" />
+              {error}
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowForm(false);
+                setError(null);
+              }}
+              className="btn-ghost"
+            >
+              Annuler
+            </button>
+            <button type="submit" className="btn-primary">
+              Créer
+            </button>
+          </div>
+        </form>
+      )}
+
+      <ul className="grid gap-2 sm:grid-cols-2">
         {categories.map((c) => (
           <li
             key={c.id}
-            className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-800 p-3 bg-white dark:bg-slate-900"
+            className="surface group flex items-start gap-3 rounded-xl p-3 transition-all hover:shadow-sm"
           >
             <span
-              className="h-3 w-3 rounded-full"
+              className="mt-1 h-3 w-3 shrink-0 rounded-full"
               style={{ backgroundColor: c.color }}
             />
-            <div className="flex-1">
-              <div className="font-medium">{c.label}</div>
-              <div className="text-xs text-slate-500">{c.slug}</div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <div className="truncate font-medium">{c.label}</div>
+                <span className="font-mono text-[10px] text-muted">{c.slug}</span>
+              </div>
               {c.description && (
-                <div className="text-xs text-slate-500 mt-1">{c.description}</div>
+                <p className="mt-1 line-clamp-2 text-xs text-muted">
+                  {c.description}
+                </p>
               )}
             </div>
             <button
               onClick={() => toggleActive(c)}
-              className={`text-xs px-2 py-1 rounded ${
+              className={`shrink-0 rounded-md p-1.5 transition-colors ${
                 c.active
-                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200'
-                  : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                  ? 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
+                  : 'text-muted hover:bg-[rgb(var(--surface-2))]'
               }`}
+              aria-label={c.active ? 'Désactiver' : 'Activer'}
             >
-              {c.active ? 'Active' : 'Inactive'}
+              <Power className="h-4 w-4" />
             </button>
           </li>
         ))}

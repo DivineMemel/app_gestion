@@ -1,5 +1,5 @@
 {
-  "name": "eric-whatsapp-worker",
+  "name": "pilote-worker",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,8 +10,9 @@
   },
   "dependencies": {
     "@hapi/boom": "^10.0.1",
-    "@supabase/supabase-js": "^2.45.0",
+    "@supabase/supabase-js": "^2.105.3",
     "@whiskeysockets/baileys": "^6.7.8",
+    "dotenv": "^16.6.1",
     "groq-sdk": "^0.9.0",
     "pino": "^9.4.0",
     "qrcode": "^1.5.4",

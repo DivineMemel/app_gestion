@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import http from 'http';
 import { startWhatsApp } from './whatsapp.js';
 import { startScheduler } from './scheduler.js';

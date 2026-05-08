@@ -3,6 +3,14 @@ import { supabase } from './supabase';
 
 const VAPID_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
+export type PushResult =
+  | 'ok'
+  | 'denied'
+  | 'unsupported'
+  | 'service-unavailable'
+  | 'invalid-key'
+  | 'error';
+
 function urlBase64ToUint8Array(base64: string) {
   const padding = '='.repeat((4 - (base64.length % 4)) % 4);
   const base64Std = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -23,7 +31,10 @@ export function pushSupported() {
 
 export async function ensureServiceWorker() {
   if (!('serviceWorker' in navigator)) return null;
-  const reg = await navigator.serviceWorker.register('/sw.js');
+  // Réutilise le SW déjà enregistré si possible — ça évite une re-registration
+  // qui peut échouer en dev avec hot-reload.
+  const existing = await navigator.serviceWorker.getRegistration('/');
+  const reg = existing || (await navigator.serviceWorker.register('/sw.js'));
   await navigator.serviceWorker.ready;
   return reg;
 }
@@ -34,7 +45,7 @@ export async function getSubscription() {
   return reg.pushManager.getSubscription();
 }
 
-export async function subscribePush(): Promise<'ok' | 'denied' | 'unsupported' | 'error'> {
+export async function subscribePush(): Promise<PushResult> {
   if (!pushSupported()) return 'unsupported';
 
   const permission = await Notification.requestPermission();
@@ -43,12 +54,21 @@ export async function subscribePush(): Promise<'ok' | 'denied' | 'unsupported' |
   const reg = await ensureServiceWorker();
   if (!reg) return 'error';
 
-  const sub =
-    (await reg.pushManager.getSubscription()) ||
-    (await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_KEY!),
-    }));
+  let sub: PushSubscription | null = null;
+  try {
+    sub =
+      (await reg.pushManager.getSubscription()) ||
+      (await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_KEY!),
+      }));
+  } catch (e: any) {
+    console.error('[push] subscribe failed', e?.name, e?.message);
+    if (e?.name === 'AbortError') return 'service-unavailable';
+    if (e?.name === 'InvalidAccessError' || /applicationServerKey/i.test(e?.message ?? ''))
+      return 'invalid-key';
+    return 'error';
+  }
 
   const json = sub.toJSON();
   if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return 'error';

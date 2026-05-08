@@ -10,3 +10,6 @@ build/
 .vercel
 .turbo
 auth_info_baileys/
+
+# Claude Code worktrees (générés localement)
+.claude/
