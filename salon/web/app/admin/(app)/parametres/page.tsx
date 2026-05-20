@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { Save, Check } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/admin-db';
 import { PageHeader } from '@/components/admin/PageHeader';
 import type { SalonSettings } from '@/lib/types';
 

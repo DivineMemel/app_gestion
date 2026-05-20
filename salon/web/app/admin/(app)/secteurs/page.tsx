@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { Plus, Trash2, ChevronDown, ChevronRight, Edit2, Check, X } from 'lucide-react';
-import { supabase, uniqueChannel } from '@/lib/supabase';
+import { supabase, uniqueChannel } from '@/lib/admin-db';
 import { PageHeader } from '@/components/admin/PageHeader';
 import type { Sector, Category } from '@/lib/types';
 

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { Download, TrendingUp, TrendingDown } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/admin-db';
 import { PageHeader } from '@/components/admin/PageHeader';
 import type { MonthlyPnL, ExpenseCategory } from '@/lib/types';
 

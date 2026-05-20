@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Receipt as ReceiptIcon, X } from 'lucide-react';
-import { supabase, uniqueChannel } from '@/lib/supabase';
+import { supabase, uniqueChannel } from '@/lib/admin-db';
 import { PageHeader } from '@/components/admin/PageHeader';
 import type {
   Sale,

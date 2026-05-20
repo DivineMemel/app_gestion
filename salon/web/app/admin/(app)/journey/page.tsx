@@ -11,7 +11,7 @@ import {
   XCircle,
   UserPlus,
 } from 'lucide-react';
-import { supabase, uniqueChannel } from '@/lib/supabase';
+import { supabase, uniqueChannel } from '@/lib/admin-db';
 import { PageHeader } from '@/components/admin/PageHeader';
 import type { Client, ClientEvent } from '@/lib/types';
 

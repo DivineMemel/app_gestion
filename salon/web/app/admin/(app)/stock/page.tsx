@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, AlertTriangle, Package } from 'lucide-react';
-import { supabase, uniqueChannel } from '@/lib/supabase';
+import { supabase, uniqueChannel } from '@/lib/admin-db';
 import { PageHeader } from '@/components/admin/PageHeader';
 import type { Product, Sector, Category } from '@/lib/types';
 
