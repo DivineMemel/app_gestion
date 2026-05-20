@@ -1,5 +1,6 @@
 import { MapPin, Phone, Mail } from 'lucide-react';
 import { Wordmark } from './Wordmark';
+import type { SalonSettings } from '@/lib/types';
 
 function InstagramIcon({ className }: { className?: string }) {
   return (
@@ -19,13 +20,29 @@ function WhatsAppIcon({ className }: { className?: string }) {
   );
 }
 
-const HOURS = [
-  ['Lundi — Vendredi', '09:00 — 19:00'],
-  ['Samedi', '09:00 — 20:00'],
-  ['Dimanche', 'Sur rendez-vous'],
+const DAYS: { key: string; label: string }[] = [
+  { key: 'lundi', label: 'Lundi' },
+  { key: 'mardi', label: 'Mardi' },
+  { key: 'mercredi', label: 'Mercredi' },
+  { key: 'jeudi', label: 'Jeudi' },
+  { key: 'vendredi', label: 'Vendredi' },
+  { key: 'samedi', label: 'Samedi' },
+  { key: 'dimanche', label: 'Dimanche' },
 ];
 
-export function Footer() {
+function socialHref(value: string | null | undefined, base: string) {
+  if (!value) return null;
+  if (value.startsWith('http')) return value;
+  return base + value.replace(/^@/, '');
+}
+
+export function Footer({ settings }: { settings?: SalonSettings | null }) {
+  const tel = settings?.phone?.replace(/[^\d+]/g, '');
+  const waDigits = settings?.whatsapp?.replace(/[^\d]/g, '');
+  const igHref = socialHref(settings?.instagram, 'https://instagram.com/');
+  const hours = settings?.opening_hours ?? {};
+  const hasHours = Object.values(hours).some(Boolean);
+
   return (
     <footer
       id="contact"
@@ -36,57 +53,66 @@ export function Footer() {
         <div className="grid gap-12 md:grid-cols-12">
           {/* Wordmark + tagline */}
           <div className="md:col-span-5">
-            <Wordmark size="lg" href={null} />
+            <Wordmark size="lg" href={null} logoUrl={settings?.logo_url ?? null} />
             <p
               className="mt-8 max-w-xs text-[14px] leading-relaxed"
               style={{ color: 'rgb(var(--ink-soft))' }}
             >
-              Une maison signature dédiée à la beauté du geste, à l&rsquo;exigence
-              du détail.
+              {settings?.tagline ||
+                'Une maison signature dédiée à la beauté du geste, à l’exigence du détail.'}
             </p>
             <div className="mt-8 flex items-center gap-3">
-              <a
-                href="https://instagram.com"
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Instagram"
-                className="grid h-10 w-10 place-items-center border transition-colors hover:bg-[rgb(var(--ink))] hover:text-[rgb(var(--bg))]"
-                style={{ borderColor: 'rgb(var(--ink))' }}
-              >
-                <InstagramIcon className="h-4 w-4" />
-              </a>
-              <a
-                href="https://wa.me/22500000000"
-                target="_blank"
-                rel="noreferrer"
-                aria-label="WhatsApp"
-                className="grid h-10 w-10 place-items-center border transition-colors hover:bg-[rgb(var(--ink))] hover:text-[rgb(var(--bg))]"
-                style={{ borderColor: 'rgb(var(--ink))' }}
-              >
-                <WhatsAppIcon className="h-4 w-4" />
-              </a>
+              {igHref && (
+                <a
+                  href={igHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Instagram"
+                  className="grid h-10 w-10 place-items-center border transition-colors hover:bg-[rgb(var(--ink))] hover:text-[rgb(var(--bg))]"
+                  style={{ borderColor: 'rgb(var(--ink))' }}
+                >
+                  <InstagramIcon className="h-4 w-4" />
+                </a>
+              )}
+              {waDigits && (
+                <a
+                  href={`https://wa.me/${waDigits}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="WhatsApp"
+                  className="grid h-10 w-10 place-items-center border transition-colors hover:bg-[rgb(var(--ink))] hover:text-[rgb(var(--bg))]"
+                  style={{ borderColor: 'rgb(var(--ink))' }}
+                >
+                  <WhatsAppIcon className="h-4 w-4" />
+                </a>
+              )}
             </div>
           </div>
 
           {/* Horaires */}
-          <div className="md:col-span-3">
-            <div
-              className="text-[10px] uppercase tracking-[0.28em] mb-5"
-              style={{ color: 'rgb(var(--muted))' }}
-            >
-              Horaires
+          {hasHours && (
+            <div className="md:col-span-3">
+              <div
+                className="text-[10px] uppercase tracking-[0.28em] mb-5"
+                style={{ color: 'rgb(var(--muted))' }}
+              >
+                Horaires
+              </div>
+              <ul className="space-y-3 text-[13px]">
+                {DAYS.map((d) => {
+                  const h = hours[d.key];
+                  return (
+                    <li key={d.key} className="flex items-baseline justify-between gap-3">
+                      <span style={{ color: 'rgb(var(--ink-soft))' }}>{d.label}</span>
+                      <span className="tabular-nums" style={{ color: 'rgb(var(--ink))' }}>
+                        {h ? `${h.open} — ${h.close}` : 'Fermé'}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
-            <ul className="space-y-3 text-[13px]">
-              {HOURS.map(([d, h]) => (
-                <li key={d} className="flex items-baseline justify-between gap-3">
-                  <span style={{ color: 'rgb(var(--ink-soft))' }}>{d}</span>
-                  <span className="tabular-nums" style={{ color: 'rgb(var(--ink))' }}>
-                    {h}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          )}
 
           {/* Contact */}
           <div className="md:col-span-4">
@@ -97,34 +123,28 @@ export function Footer() {
               Contact
             </div>
             <ul className="space-y-3 text-[13px]">
-              <li className="flex items-start gap-3">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.25} />
-                <span style={{ color: 'rgb(var(--ink-soft))' }}>
-                  Cocody, Abidjan
-                  <br />
-                  Côte d&rsquo;Ivoire
-                </span>
-              </li>
-              <li className="flex items-center gap-3">
-                <Phone className="h-4 w-4 shrink-0" strokeWidth={1.25} />
-                <a
-                  href="tel:+22500000000"
-                  className="underline-anim"
-                  style={{ color: 'rgb(var(--ink))' }}
-                >
-                  +225 00 00 00 00
-                </a>
-              </li>
-              <li className="flex items-center gap-3">
-                <Mail className="h-4 w-4 shrink-0" strokeWidth={1.25} />
-                <a
-                  href="mailto:hello@museatelier.ci"
-                  className="underline-anim"
-                  style={{ color: 'rgb(var(--ink))' }}
-                >
-                  hello@museatelier.ci
-                </a>
-              </li>
+              {settings?.address && (
+                <li className="flex items-start gap-3">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.25} />
+                  <span style={{ color: 'rgb(var(--ink-soft))' }}>{settings.address}</span>
+                </li>
+              )}
+              {tel && (
+                <li className="flex items-center gap-3">
+                  <Phone className="h-4 w-4 shrink-0" strokeWidth={1.25} />
+                  <a href={`tel:${tel}`} className="underline-anim" style={{ color: 'rgb(var(--ink))' }}>
+                    {settings?.phone}
+                  </a>
+                </li>
+              )}
+              {settings?.email && (
+                <li className="flex items-center gap-3">
+                  <Mail className="h-4 w-4 shrink-0" strokeWidth={1.25} />
+                  <a href={`mailto:${settings.email}`} className="underline-anim" style={{ color: 'rgb(var(--ink))' }}>
+                    {settings.email}
+                  </a>
+                </li>
+              )}
             </ul>
           </div>
         </div>
@@ -133,7 +153,7 @@ export function Footer() {
           className="mt-20 flex flex-col items-center justify-between gap-3 border-t py-8 text-[10px] uppercase tracking-[0.24em] md:flex-row"
           style={{ borderColor: 'rgb(var(--line))', color: 'rgb(var(--muted))' }}
         >
-          <div>© {new Date().getFullYear()} MUSE l&rsquo;atelier — Tous droits réservés</div>
+          <div>© {new Date().getFullYear()} {settings?.name || 'MUSE l’atelier'} — Tous droits réservés</div>
           <div>Made in Abidjan</div>
         </div>
       </div>

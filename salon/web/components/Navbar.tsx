@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import { Wordmark } from './Wordmark';
+import type { SalonSettings } from '@/lib/types';
 
 const NAV = [
   { href: '#secteurs', label: 'Secteurs' },
@@ -12,7 +13,7 @@ const NAV = [
   { href: '#contact', label: 'Contact' },
 ];
 
-export function Navbar() {
+export function Navbar({ settings }: { settings?: SalonSettings | null }) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -54,7 +55,7 @@ export function Navbar() {
         </div>
 
         <div className="flex-shrink-0">
-          <Wordmark size="md" />
+          <Wordmark size="md" logoUrl={settings?.logo_url ?? null} />
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-6">

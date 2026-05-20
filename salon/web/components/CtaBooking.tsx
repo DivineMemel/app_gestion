@@ -1,6 +1,9 @@
 import Link from 'next/link';
+import type { SalonSettings } from '@/lib/types';
 
-export function CtaBooking() {
+export function CtaBooking({ settings }: { settings?: SalonSettings | null }) {
+  const tel = settings?.phone?.replace(/[^\d+]/g, '');
+
   return (
     <section className="py-24 md:py-40">
       <div className="mx-auto max-w-5xl px-6 text-center">
@@ -21,9 +24,11 @@ export function CtaBooking() {
           <Link href="/reserver" className="btn-primary">
             Prendre rendez-vous
           </Link>
-          <a href="tel:+22500000000" className="btn-outline">
-            Nous appeler
-          </a>
+          {tel && (
+            <a href={`tel:${tel}`} className="btn-outline">
+              Nous appeler
+            </a>
+          )}
         </div>
       </div>
     </section>

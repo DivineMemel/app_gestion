@@ -1,10 +1,9 @@
-const TEAM = [
-  { name: 'Awa', role: 'Coloriste senior', sector: 'Coiffure' },
-  { name: 'Maïmouna', role: 'Spécialiste tresses', sector: 'Coiffure' },
-  { name: 'Nadia', role: 'Onglerie & nail art', sector: 'Onglerie' },
-];
+import Image from 'next/image';
+import type { Staff } from '@/lib/types';
 
-export function Stylists() {
+export function Stylists({ staff }: { staff: Staff[] }) {
+  if (staff.length === 0) return null;
+
   return (
     <section id="maison" className="py-24 md:py-40">
       <div className="mx-auto max-w-7xl px-6">
@@ -22,38 +21,50 @@ export function Stylists() {
             style={{ color: 'rgb(var(--ink-soft))' }}
           >
             Une équipe restreinte et formée — pour que chaque cliente reçoive
-            l&rsquo;attention qu&rsquo;elle mérite. Pas de rotation, pas de
-            précipitation.
+            l&rsquo;attention qu&rsquo;elle mérite.
           </p>
         </div>
 
         <div className="mt-16 grid gap-px bg-[rgb(var(--line))] md:grid-cols-3">
-          {TEAM.map((p, i) => (
-            <article
-              key={p.name}
-              className="bg-[rgb(var(--bg))] p-8 md:p-10"
-            >
-              <div className="img-bw aspect-[3/4]" />
+          {staff.map((p, i) => (
+            <article key={p.id} className="bg-[rgb(var(--bg))] p-8 md:p-10">
+              <div className="relative aspect-[3/4] overflow-hidden">
+                {p.photo_url ? (
+                  <Image
+                    src={p.photo_url}
+                    alt={p.name}
+                    fill
+                    sizes="(max-width:768px) 100vw, 33vw"
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="img-bw absolute inset-0" />
+                )}
+              </div>
               <div className="mt-6 flex items-baseline justify-between">
                 <span className="section-number">
                   {String(i + 1).padStart(2, '0')}
                 </span>
-                <span
-                  className="text-[10px] uppercase tracking-[0.24em]"
-                  style={{ color: 'rgb(var(--muted))' }}
-                >
-                  {p.sector}
-                </span>
+                {p.role && (
+                  <span
+                    className="text-[10px] uppercase tracking-[0.24em]"
+                    style={{ color: 'rgb(var(--muted))' }}
+                  >
+                    {p.role}
+                  </span>
+                )}
               </div>
               <h3 className="font-display mt-3 text-3xl font-medium tracking-tight">
                 {p.name}
               </h3>
-              <div
-                className="mt-1 text-[12px]"
-                style={{ color: 'rgb(var(--muted))' }}
-              >
-                {p.role}
-              </div>
+              {p.bio && (
+                <p
+                  className="mt-1 text-[12px] leading-relaxed"
+                  style={{ color: 'rgb(var(--muted))' }}
+                >
+                  {p.bio}
+                </p>
+              )}
             </article>
           ))}
         </div>

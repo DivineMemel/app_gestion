@@ -1,13 +1,9 @@
-const ITEMS = [
-  { tag: 'Tresses', n: '01' },
-  { tag: 'Couleur', n: '02' },
-  { tag: 'Manucure', n: '03' },
-  { tag: 'Coupe', n: '04' },
-  { tag: 'Mariage', n: '05' },
-  { tag: 'Pédicure', n: '06' },
-];
+import Image from 'next/image';
+import type { GalleryImage } from '@/lib/types';
 
-export function Gallery() {
+export function Gallery({ images }: { images: GalleryImage[] }) {
+  if (images.length === 0) return null;
+
   return (
     <section id="galerie" className="py-24 md:py-40">
       <div className="mx-auto max-w-7xl px-6">
@@ -25,29 +21,40 @@ export function Gallery() {
             style={{ color: 'rgb(var(--ink-soft))' }}
           >
             Les portraits parlent mieux que les mots. Voici un aperçu de notre
-            travail récent — coiffures, manucures, instants signature.
+            travail récent.
           </p>
         </div>
 
         <div className="mt-16 grid grid-cols-2 gap-1 md:grid-cols-4">
-          {ITEMS.map((it, i) => (
+          {images.map((it, i) => (
             <figure
-              key={it.n}
+              key={it.id}
               className={`group relative overflow-hidden ${
                 i === 0 || i === 4 ? 'md:col-span-2 md:row-span-2 aspect-square' : 'aspect-[3/4]'
               }`}
             >
-              <div className="img-bw absolute inset-0 transition-transform duration-700 group-hover:scale-105" />
+              <Image
+                src={it.image_url}
+                alt={it.caption ?? it.tag ?? ''}
+                fill
+                sizes="(max-width:768px) 50vw, 25vw"
+                className="object-cover transition-transform duration-700 group-hover:scale-105"
+              />
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
               <figcaption className="absolute inset-x-0 bottom-0 p-4 md:p-6">
                 <div className="flex items-baseline justify-between text-white">
                   <span className="text-[10px] uppercase tracking-[0.28em] opacity-80">
-                    N° {it.n}
+                    N° {String(i + 1).padStart(2, '0')}
                   </span>
-                  <span className="text-[11px] uppercase tracking-[0.18em]">
-                    {it.tag}
-                  </span>
+                  {it.tag && (
+                    <span className="text-[11px] uppercase tracking-[0.18em]">
+                      {it.tag}
+                    </span>
+                  )}
                 </div>
+                {it.caption && (
+                  <div className="mt-1 text-[12px] text-white/90">{it.caption}</div>
+                )}
               </figcaption>
             </figure>
           ))}

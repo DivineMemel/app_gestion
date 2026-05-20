@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, AlertTriangle, Package } from 'lucide-react';
 import { supabase, uniqueChannel } from '@/lib/admin-db';
 import { PageHeader } from '@/components/admin/PageHeader';
+import { ImageUpload } from '@/components/admin/ImageUpload';
 import type { Product, Sector, Category } from '@/lib/types';
 
 type Form = {
@@ -16,6 +17,7 @@ type Form = {
   low_stock_threshold: number;
   sector_id: string;
   category_id: string;
+  image_url: string;
 };
 
 const EMPTY: Form = {
@@ -28,6 +30,7 @@ const EMPTY: Form = {
   low_stock_threshold: 5,
   sector_id: '',
   category_id: '',
+  image_url: '',
 };
 
 function fmt(xof: number) {
@@ -99,6 +102,7 @@ export default function StockPage() {
       low_stock_threshold: f.low_stock_threshold,
       sector_id: f.sector_id || null,
       category_id: f.category_id || null,
+      image_url: f.image_url || null,
     };
     if (f.id) {
       await supabase.from('products').update(payload).eq('id', f.id);
@@ -284,6 +288,7 @@ export default function StockPage() {
                       low_stock_threshold: p.low_stock_threshold,
                       sector_id: p.sector_id ?? '',
                       category_id: p.category_id ?? '',
+                      image_url: p.image_url ?? '',
                     })
                   }
                   className="text-[11px] uppercase tracking-[0.24em] underline-anim"
@@ -515,6 +520,13 @@ function ProductForm({
           />
         </Field>
       </div>
+
+      <ImageUpload
+        label="Photo du produit"
+        folder="products"
+        value={form.image_url || null}
+        onChange={(url) => onChange({ ...form, image_url: url ?? '' })}
+      />
 
       <div className="flex items-center gap-3 pt-2">
         <button type="submit" className="btn-primary">

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Save, Check } from 'lucide-react';
 import { supabase } from '@/lib/admin-db';
 import { PageHeader } from '@/components/admin/PageHeader';
+import { ImageUpload } from '@/components/admin/ImageUpload';
 import type { SalonSettings } from '@/lib/types';
 
 const DAYS = [
@@ -70,6 +71,7 @@ export default function ParametresPage() {
         instagram: s.instagram,
         facebook: s.facebook,
         tiktok: s.tiktok,
+        logo_url: s.logo_url,
         opening_hours: s.opening_hours,
         updated_at: new Date().toISOString(),
       })
@@ -109,6 +111,14 @@ export default function ParametresPage() {
 
       {/* Identité */}
       <Section title="Identité">
+        <div className="mb-6">
+          <ImageUpload
+            label="Logo"
+            folder="logo"
+            value={settings.logo_url}
+            onChange={(url) => update('logo_url', url)}
+          />
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Nom du salon">
             <input

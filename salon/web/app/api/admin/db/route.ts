@@ -19,6 +19,7 @@ const TABLES = [
   'salon_settings',
   'staff',
   'client_events',
+  'gallery_images',
 ] as const;
 
 const VIEWS = ['monthly_pnl', 'clients_at_risk'] as const;

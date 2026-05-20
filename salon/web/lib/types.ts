@@ -169,6 +169,16 @@ export type MonthlyPnL = {
   profit_xof: number;
 };
 
+export type GalleryImage = {
+  id: string;
+  image_url: string;
+  caption: string | null;
+  tag: string | null;
+  display_order: number;
+  active: boolean;
+  created_at: string;
+};
+
 export type SalonSettings = {
   id: number;
   name: string;

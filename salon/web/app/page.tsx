@@ -6,20 +6,25 @@ import { Gallery } from '@/components/Gallery';
 import { Stylists } from '@/components/Stylists';
 import { CtaBooking } from '@/components/CtaBooking';
 import { Footer } from '@/components/Footer';
+import { getStorefrontData } from '@/lib/storefront-data';
 
-export default function Home() {
+export const dynamic = 'force-dynamic';
+
+export default async function Home() {
+  const { settings, sectors, services, staff, gallery } = await getStorefrontData();
+
   return (
     <>
-      <Navbar />
+      <Navbar settings={settings} />
       <main>
-        <Hero />
-        <Sectors />
-        <Services />
-        <Gallery />
-        <Stylists />
-        <CtaBooking />
+        <Hero settings={settings} />
+        <Sectors sectors={sectors} />
+        <Services sectors={sectors} services={services} />
+        <Gallery images={gallery} />
+        <Stylists staff={staff} />
+        <CtaBooking settings={settings} />
       </main>
-      <Footer />
+      <Footer settings={settings} />
     </>
   );
 }

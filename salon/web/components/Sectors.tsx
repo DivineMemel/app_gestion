@@ -1,25 +1,10 @@
-import { Scissors, Sparkles, ArrowUpRight } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowUpRight } from 'lucide-react';
+import type { Sector } from '@/lib/types';
 
-const SECTORS = [
-  {
-    n: '01',
-    Icon: Scissors,
-    name: 'Coiffure',
-    tag: 'Coupes · Couleur · Tresses · Soins',
-    text:
-      "Une équipe formée aux gestes signature : coupes structurées, colorations sur-mesure, soins en profondeur, tresses africaines.",
-  },
-  {
-    n: '02',
-    Icon: Sparkles,
-    name: 'Onglerie',
-    tag: 'Manucure · Pédicure · Pose · Entretiens',
-    text:
-      "Pour des mains et pieds impeccables : manucure classique, semi-permanent, pose américaine, nail art discret.",
-  },
-];
+export function Sectors({ sectors }: { sectors: Sector[] }) {
+  if (sectors.length === 0) return null;
 
-export function Sectors() {
   return (
     <section id="secteurs" className="py-24 md:py-40">
       <div className="mx-auto max-w-7xl px-6">
@@ -36,48 +21,46 @@ export function Sectors() {
             className="max-w-md text-[15px] leading-relaxed md:col-span-7 md:col-start-6 md:self-end"
             style={{ color: 'rgb(var(--ink-soft))' }}
           >
-            MUSE l&rsquo;atelier réunit les expertises sous un même toit. Chaque
-            secteur est mené par une spécialiste — pour que chaque détail compte.
+            Chaque secteur est mené par une spécialiste — pour que chaque détail
+            compte.
           </p>
         </div>
 
         <div className="mt-16 grid gap-px bg-[rgb(var(--line))] md:grid-cols-2">
-          {SECTORS.map((s) => {
-            const Icon = s.Icon;
-            return (
-              <a
-                key={s.n}
-                href="#prestations"
-                className="group relative bg-[rgb(var(--bg))] p-8 md:p-12 transition-colors hover:bg-[rgb(var(--surface))]"
-              >
+          {sectors.map((s, i) => (
+            <a
+              key={s.id}
+              href="#prestations"
+              className="group relative overflow-hidden bg-[rgb(var(--bg))] p-8 md:p-12 transition-colors hover:bg-[rgb(var(--surface))]"
+            >
+              {s.cover_image_url && (
+                <div className="absolute inset-0 opacity-[0.08] transition-opacity group-hover:opacity-[0.14]">
+                  <Image src={s.cover_image_url} alt="" fill sizes="(max-width:768px) 100vw, 50vw" className="object-cover" />
+                </div>
+              )}
+              <div className="relative">
                 <div className="flex items-start justify-between">
-                  <span className="section-number">{s.n} —</span>
-                  <ArrowUpRight
-                    className="h-4 w-4 text-[rgb(var(--muted))] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-                  />
+                  <span className="section-number">
+                    {String(i + 1).padStart(2, '0')} —
+                  </span>
+                  <ArrowUpRight className="h-4 w-4 text-[rgb(var(--muted))] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                 </div>
 
-                <Icon className="mt-12 h-7 w-7" strokeWidth={1.25} />
-
-                <h3 className="font-display mt-6 text-4xl font-medium tracking-tight md:text-5xl">
+                <h3 className="font-display mt-12 text-4xl font-medium tracking-tight md:text-5xl">
                   {s.name}
                 </h3>
-                <div
-                  className="mt-2 text-[11px] uppercase tracking-[0.18em]"
-                  style={{ color: 'rgb(var(--muted))' }}
-                >
-                  {s.tag}
-                </div>
 
-                <p
-                  className="mt-6 max-w-sm text-[14px] leading-relaxed"
-                  style={{ color: 'rgb(var(--ink-soft))' }}
-                >
-                  {s.text}
-                </p>
-              </a>
-            );
-          })}
+                {s.description && (
+                  <p
+                    className="mt-6 max-w-sm text-[14px] leading-relaxed"
+                    style={{ color: 'rgb(var(--ink-soft))' }}
+                  >
+                    {s.description}
+                  </p>
+                )}
+              </div>
+            </a>
+          ))}
         </div>
       </div>
     </section>

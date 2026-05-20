@@ -13,6 +13,8 @@ import {
   ExternalLink,
   Layers,
   LogOut,
+  Scissors,
+  Images,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Wordmark } from '@/components/Wordmark';
@@ -48,10 +50,16 @@ const NAV_FINANCE: NavItem[] = [
   { href: '/admin/comptabilite', label: 'Comptabilité', icon: Receipt },
 ];
 
+const NAV_VITRINE: NavItem[] = [
+  { href: '/admin/equipe', label: 'Équipe', icon: Scissors },
+  { href: '/admin/galerie', label: 'Galerie', icon: Images },
+];
+
 const SECTIONS = [
   { title: 'Activité', items: NAV_ACTIVITY },
   { title: 'Clients', items: NAV_RELATIONS },
   { title: 'Catalogue', items: NAV_CATALOG },
+  { title: 'Vitrine', items: NAV_VITRINE },
   { title: 'Finances', items: NAV_FINANCE },
 ];
 

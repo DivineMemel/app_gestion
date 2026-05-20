@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Edit2 } from 'lucide-react';
 import { supabase, uniqueChannel } from '@/lib/admin-db';
 import { PageHeader } from '@/components/admin/PageHeader';
+import { ImageUpload } from '@/components/admin/ImageUpload';
 import type { Service, Sector, Category } from '@/lib/types';
 
 type Form = {
@@ -14,6 +15,7 @@ type Form = {
   duration_min: number;
   sector_id: string;
   category_id: string;
+  image_url: string;
 };
 
 const EMPTY: Form = {
@@ -24,6 +26,7 @@ const EMPTY: Form = {
   duration_min: 60,
   sector_id: '',
   category_id: '',
+  image_url: '',
 };
 
 function fmt(xof: number) {
@@ -79,6 +82,7 @@ export default function ServicesPage() {
       duration_min: Number(form.duration_min) || 60,
       sector_id: form.sector_id || null,
       category_id: form.category_id || null,
+      image_url: form.image_url || null,
       active: true,
     };
     if (form.id) {
@@ -211,6 +215,7 @@ export default function ServicesPage() {
                       duration_min: s.duration_min,
                       sector_id: s.sector_id || '',
                       category_id: s.category_id || '',
+                      image_url: s.image_url || '',
                     })
                   }
                   className="btn-ghost text-[11px]"
@@ -330,6 +335,12 @@ function ServiceForm({
           className="input resize-none"
         />
       </Field>
+      <ImageUpload
+        label="Photo du service"
+        folder="services"
+        value={data.image_url || null}
+        onChange={(url) => set('image_url', url ?? '')}
+      />
       <div className="flex items-center gap-2 pt-2 border-t" style={{ borderColor: 'rgb(var(--line))' }}>
         <button type="submit" className="btn-primary">
           {form.id ? 'Enregistrer' : 'Créer'}

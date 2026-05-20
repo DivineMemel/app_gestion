@@ -3,11 +3,15 @@ import { ArrowLeft } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { ReservationWizard } from '@/components/reserver/ReservationWizard';
+import { getStorefrontData } from '@/lib/storefront-data';
 
-export default function ReserverPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function ReserverPage() {
+  const { settings } = await getStorefrontData();
   return (
     <>
-      <Navbar />
+      <Navbar settings={settings} />
       <main className="pt-32 pb-24 md:pt-40">
         <div className="mx-auto max-w-3xl px-6">
           <Link
@@ -36,7 +40,7 @@ export default function ReserverPage() {
           <ReservationWizard />
         </div>
       </main>
-      <Footer />
+      <Footer settings={settings} />
     </>
   );
 }

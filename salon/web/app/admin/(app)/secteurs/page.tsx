@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Trash2, ChevronDown, ChevronRight, Edit2, Check, X } from 'lucide-react';
 import { supabase, uniqueChannel } from '@/lib/admin-db';
 import { PageHeader } from '@/components/admin/PageHeader';
+import { ImageUpload } from '@/components/admin/ImageUpload';
 import type { Sector, Category } from '@/lib/types';
 
 export default function SecteursPage() {
@@ -11,7 +12,12 @@ export default function SecteursPage() {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
-  const [newSector, setNewSector] = useState({ slug: '', name: '', description: '' });
+  const [newSector, setNewSector] = useState({
+    slug: '',
+    name: '',
+    description: '',
+    cover_image_url: '' as string | null,
+  });
 
   async function load() {
     const [{ data: s }, { data: c }] = await Promise.all([
@@ -43,14 +49,19 @@ export default function SecteursPage() {
       slug,
       name: newSector.name.trim(),
       description: newSector.description.trim() || null,
+      cover_image_url: newSector.cover_image_url || null,
       display_order: sectors.length,
     });
-    setNewSector({ slug: '', name: '', description: '' });
+    setNewSector({ slug: '', name: '', description: '', cover_image_url: '' });
     setAdding(false);
   }
 
   async function toggleSectorActive(s: Sector) {
     await supabase.from('sectors').update({ active: !s.active }).eq('id', s.id);
+  }
+
+  async function setSectorCover(s: Sector, url: string | null) {
+    await supabase.from('sectors').update({ cover_image_url: url }).eq('id', s.id);
   }
 
   async function deleteSector(s: Sector) {
@@ -107,6 +118,15 @@ export default function SecteursPage() {
               onChange={(e) => setNewSector({ ...newSector, description: e.target.value })}
               placeholder="ex: Hydrafacial, gommages…"
               className="input"
+            />
+          </div>
+          <div className="md:col-span-3">
+            <ImageUpload
+              label="Image de couverture (optionnel)"
+              folder="sectors"
+              aspect="aspect-[16/9]"
+              value={newSector.cover_image_url || null}
+              onChange={(url) => setNewSector({ ...newSector, cover_image_url: url ?? '' })}
             />
           </div>
           <div className="md:col-span-3">
@@ -172,7 +192,14 @@ export default function SecteursPage() {
               </div>
 
               {isOpen && (
-                <div className="border-t px-5 md:px-6 py-4" style={{ borderColor: 'rgb(var(--line))' }}>
+                <div className="border-t px-5 md:px-6 py-4 space-y-6" style={{ borderColor: 'rgb(var(--line))' }}>
+                  <ImageUpload
+                    label="Image de couverture"
+                    folder="sectors"
+                    aspect="aspect-[16/9]"
+                    value={s.cover_image_url}
+                    onChange={(url) => setSectorCover(s, url)}
+                  />
                   <CategoriesEditor sector={s} categories={cats} />
                 </div>
               )}
