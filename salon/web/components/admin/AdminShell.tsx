@@ -15,9 +15,17 @@ import {
   LogOut,
   Scissors,
   Images,
+  UserCog,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { Wordmark } from '@/components/Wordmark';
+import {
+  canView,
+  moduleForPath,
+  ROLE_LABELS,
+  type Role,
+} from '@/lib/permissions';
 
 type LucideIcon = typeof Calendar;
 
@@ -71,11 +79,37 @@ const MOBILE: NavItem[] = [
   { href: '/admin/depenses', label: 'Dépenses', icon: Wallet },
 ];
 
-export function AdminShell({ children }: { children: React.ReactNode }) {
+export function AdminShell({
+  children,
+  role,
+  memberName,
+}: {
+  children: React.ReactNode;
+  role: Role;
+  memberName: string;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const isActive = (href: string, exact?: boolean) =>
     exact ? pathname === href : pathname.startsWith(href);
+
+  const seesHref = (href: string) => {
+    const m = moduleForPath(href);
+    return m ? canView(role, m) : true;
+  };
+
+  // Garde de route : si le rôle n'a pas accès à la page courante, retour au bord.
+  useEffect(() => {
+    const m = moduleForPath(pathname);
+    if (m && !canView(role, m)) router.replace('/admin');
+  }, [pathname, role, router]);
+
+  const sections = SECTIONS.map((s) => ({
+    ...s,
+    items: s.items.filter((it) => seesHref(it.href)),
+  })).filter((s) => s.items.length > 0);
+
+  const mobileItems = MOBILE.filter((it) => seesHref(it.href));
 
   async function logout() {
     await fetch('/api/admin/logout', { method: 'POST' });
@@ -94,7 +128,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="mt-8 space-y-7">
-          {SECTIONS.map((section) => (
+          {sections.map((section) => (
             <div key={section.title}>
               <div
                 className="px-3 mb-2 text-[10px] uppercase tracking-[0.24em]"
@@ -132,14 +166,34 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="mt-auto border-t pt-4 px-3 space-y-1" style={{ borderColor: 'rgb(var(--line))' }}>
-          <Link
-            href="/admin/parametres"
-            className="flex items-center gap-3 px-0 py-2 text-[12px] hover:opacity-100 transition-opacity"
-            style={{ color: 'rgb(var(--muted))' }}
-          >
-            <Settings className="h-3.5 w-3.5" strokeWidth={1.5} />
-            Paramètres
-          </Link>
+          <div className="px-0 pb-2">
+            <div className="text-[13px] font-medium" style={{ color: 'rgb(var(--ink))' }}>
+              {memberName}
+            </div>
+            <div className="text-[10px] uppercase tracking-[0.24em]" style={{ color: 'rgb(var(--muted))' }}>
+              {ROLE_LABELS[role]}
+            </div>
+          </div>
+          {canView(role, 'comptes') && (
+            <Link
+              href="/admin/comptes"
+              className="flex items-center gap-3 px-0 py-2 text-[12px]"
+              style={{ color: 'rgb(var(--muted))' }}
+            >
+              <UserCog className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Comptes
+            </Link>
+          )}
+          {canView(role, 'parametres') && (
+            <Link
+              href="/admin/parametres"
+              className="flex items-center gap-3 px-0 py-2 text-[12px] hover:opacity-100 transition-opacity"
+              style={{ color: 'rgb(var(--muted))' }}
+            >
+              <Settings className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Paramètres
+            </Link>
+          )}
           <Link
             href="/"
             className="flex items-center gap-3 px-0 py-2 text-[12px]"
@@ -185,8 +239,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           className="md:hidden fixed bottom-0 inset-x-0 z-30 glass border-t"
           style={{ borderColor: 'rgb(var(--line))' }}
         >
-          <div className="grid grid-cols-5">
-            {MOBILE.map(({ href, label, icon: Icon, exact }) => {
+          <div
+            className="grid"
+            style={{ gridTemplateColumns: `repeat(${mobileItems.length}, minmax(0, 1fr))` }}
+          >
+            {mobileItems.map(({ href, label, icon: Icon, exact }) => {
               const active = isActive(href, exact);
               return (
                 <Link

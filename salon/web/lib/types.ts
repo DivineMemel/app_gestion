@@ -169,6 +169,15 @@ export type MonthlyPnL = {
   profit_xof: number;
 };
 
+export type TeamMember = {
+  id: string;
+  name: string;
+  email: string;
+  role: 'owner' | 'manager' | 'employee';
+  status: 'pending' | 'active' | 'disabled';
+  created_at: string;
+};
+
 export type GalleryImage = {
   id: string;
   image_url: string;

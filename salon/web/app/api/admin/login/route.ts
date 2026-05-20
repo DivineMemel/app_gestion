@@ -1,32 +1,59 @@
 import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase-server';
+import { verifyPassword } from '@/lib/auth-server';
+import { signSession } from '@/lib/session';
+
+const COOKIE_OPTS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  path: '/',
+  maxAge: 60 * 60 * 24 * 30, // 30 jours
+};
 
 export async function POST(req: Request) {
-  const body = (await req.json().catch(() => null)) as { password?: string } | null;
+  const body = (await req.json().catch(() => null)) as {
+    email?: string;
+    password?: string;
+  } | null;
+  const email = body?.email?.trim().toLowerCase() ?? '';
   const password = body?.password ?? '';
 
-  const expected = process.env.ADMIN_PASSWORD;
+  const masterPassword = process.env.ADMIN_PASSWORD;
   const token = process.env.ADMIN_TOKEN;
-
-  if (!expected || !token) {
-    return NextResponse.json(
-      { ok: false, reason: 'env_missing' },
-      { status: 500 },
-    );
+  if (!masterPassword || !token) {
+    return NextResponse.json({ ok: false, reason: 'env_missing' }, { status: 500 });
   }
 
-  if (password !== expected) {
-    // Petit délai pour limiter le brute force naïf
-    await new Promise((r) => setTimeout(r, 600));
-    return NextResponse.json({ ok: false, reason: 'bad_password' }, { status: 401 });
+  // 1) Mot de passe maître → propriétaire (bootstrap, email ignoré).
+  if (password === masterPassword) {
+    const res = NextResponse.json({ ok: true, role: 'owner' });
+    res.cookies.set('muse_admin', token, COOKIE_OPTS);
+    return res;
   }
 
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set('muse_admin', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 30, // 30 jours
-  });
-  return res;
+  // 2) Compte membre.
+  if (email) {
+    const { data } = await supabaseAdmin()
+      .from('team_members')
+      .select('id, password_hash, role, status')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (data && verifyPassword(password, data.password_hash)) {
+      if (data.status === 'pending') {
+        return NextResponse.json({ ok: false, reason: 'pending' }, { status: 403 });
+      }
+      if (data.status !== 'active') {
+        return NextResponse.json({ ok: false, reason: 'disabled' }, { status: 403 });
+      }
+      const res = NextResponse.json({ ok: true, role: data.role });
+      res.cookies.set('muse_session', await signSession(data.id, token), COOKIE_OPTS);
+      return res;
+    }
+  }
+
+  // Délai léger anti-bruteforce
+  await new Promise((r) => setTimeout(r, 500));
+  return NextResponse.json({ ok: false, reason: 'bad_credentials' }, { status: 401 });
 }

@@ -1,5 +1,6 @@
 'use client';
 import { Suspense, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Wordmark } from '@/components/Wordmark';
 
@@ -16,6 +17,7 @@ function LoginInner() {
   const params = useSearchParams();
   const next = params.get('next') || '/admin';
 
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -27,20 +29,22 @@ function LoginInner() {
     const res = await fetch('/api/admin/login', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ email, password }),
     });
     setBusy(false);
     if (res.ok) {
       router.replace(next);
       router.refresh();
-    } else {
-      const data = await res.json().catch(() => ({}));
-      setError(
-        data?.reason === 'env_missing'
-          ? "Configuration manquante côté serveur (ADMIN_PASSWORD / ADMIN_TOKEN)."
-          : 'Mot de passe incorrect.',
-      );
+      return;
     }
+    const data = await res.json().catch(() => ({}));
+    const map: Record<string, string> = {
+      env_missing: 'Configuration manquante côté serveur.',
+      pending: 'Compte en attente de validation par le propriétaire.',
+      disabled: 'Compte désactivé. Contacte le propriétaire.',
+      bad_credentials: 'Email ou mot de passe incorrect.',
+    };
+    setError(map[data?.reason] ?? 'Connexion impossible.');
   }
 
   return (
@@ -63,11 +67,28 @@ function LoginInner() {
               className="block mb-2 text-[10px] uppercase tracking-[0.24em]"
               style={{ color: 'rgb(var(--muted))' }}
             >
+              Email
+            </label>
+            <input
+              type="email"
+              autoFocus
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="input"
+              placeholder="toi@exemple.com"
+            />
+          </div>
+
+          <div>
+            <label
+              className="block mb-2 text-[10px] uppercase tracking-[0.24em]"
+              style={{ color: 'rgb(var(--muted))' }}
+            >
               Mot de passe
             </label>
             <input
               type="password"
-              autoFocus
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -92,6 +113,13 @@ function LoginInner() {
           >
             {busy ? 'Vérification…' : 'Entrer'}
           </button>
+
+          <p className="text-center text-[12px]" style={{ color: 'rgb(var(--muted))' }}>
+            Pas encore de compte ?{' '}
+            <Link href="/admin/register" className="underline-anim" style={{ color: 'rgb(var(--ink))' }}>
+              S&rsquo;inscrire
+            </Link>
+          </p>
         </form>
       </div>
     </div>

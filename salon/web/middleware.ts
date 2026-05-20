@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { verifySession } from '@/lib/session';
 
-const PUBLIC_ADMIN_ROUTES = ['/admin/login'];
+const PUBLIC_ADMIN_ROUTES = ['/admin/login', '/admin/register'];
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (!pathname.startsWith('/admin')) return NextResponse.next();
@@ -11,11 +12,17 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const expected = process.env.ADMIN_TOKEN;
-  const got = req.cookies.get('muse_admin')?.value;
+  const token = process.env.ADMIN_TOKEN;
+  const master = req.cookies.get('muse_admin')?.value;
+  const session = req.cookies.get('muse_session')?.value;
 
-  // En l'absence d'ADMIN_TOKEN, on bloque par sécurité (sauf si on est en login)
-  if (!expected || got !== expected) {
+  // Connecté si : cookie maître valide OU session signée valide.
+  // Le rôle/statut précis est vérifié côté serveur (layout + routes API).
+  let authed = false;
+  if (token && master && master === token) authed = true;
+  else if (token && session && (await verifySession(session, token))) authed = true;
+
+  if (!authed) {
     const url = req.nextUrl.clone();
     url.pathname = '/admin/login';
     url.searchParams.set('next', pathname);

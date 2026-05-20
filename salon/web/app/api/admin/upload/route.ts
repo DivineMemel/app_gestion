@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
+import { resolveMember } from '@/lib/auth-server';
+import { canWriteModule, FOLDER_MODULE } from '@/lib/permissions';
 
 const BUCKET = 'media';
 const ALLOWED = new Set([
@@ -31,9 +33,11 @@ const EXT: Record<string, string> = {
 };
 
 export async function POST(req: NextRequest) {
-  const expected = process.env.ADMIN_TOKEN;
-  const got = req.cookies.get('muse_admin')?.value;
-  if (!expected || got !== expected) {
+  const member = await resolveMember(
+    req.cookies.get('muse_admin')?.value,
+    req.cookies.get('muse_session')?.value,
+  );
+  if (!member) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
@@ -47,6 +51,12 @@ export async function POST(req: NextRequest) {
   const file = form.get('file');
   const folderRaw = String(form.get('folder') ?? 'gallery');
   const folder = FOLDERS.has(folderRaw) ? folderRaw : 'gallery';
+
+  // Le rôle doit pouvoir écrire le module correspondant au dossier.
+  const mod = FOLDER_MODULE[folder];
+  if (!mod || !canWriteModule(member.role, mod)) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: 'no_file' }, { status: 400 });

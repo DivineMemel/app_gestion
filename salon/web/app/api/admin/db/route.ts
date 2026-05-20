@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
+import { resolveMember } from '@/lib/auth-server';
+import { canReadTable, canWriteTable } from '@/lib/permissions';
 
 // Modèle de sécurité : la RLS est activée partout et la clé anon n'a aucun
 // accès. Tout le CRUD admin transite par cette route, exécutée en service_role
@@ -20,6 +22,7 @@ const TABLES = [
   'staff',
   'client_events',
   'gallery_images',
+  'team_members',
 ] as const;
 
 const VIEWS = ['monthly_pnl', 'clients_at_risk'] as const;
@@ -46,9 +49,11 @@ function fail(message: string, status: number) {
 }
 
 export async function POST(req: NextRequest) {
-  const expected = process.env.ADMIN_TOKEN;
-  const got = req.cookies.get('muse_admin')?.value;
-  if (!expected || got !== expected) return fail('unauthorized', 401);
+  const member = await resolveMember(
+    req.cookies.get('muse_admin')?.value,
+    req.cookies.get('muse_session')?.value,
+  );
+  if (!member) return fail('unauthorized', 401);
 
   let body: Body | null = null;
   try {
@@ -67,6 +72,12 @@ export async function POST(req: NextRequest) {
   if (!ACTIONS.has(action)) return fail(`unknown_action:${action}`, 400);
   if (isWrite && !WRITABLE.has(table)) return fail(`table_not_writable:${table}`, 403);
   if (!isWrite && !READABLE.has(table)) return fail(`table_not_readable:${table}`, 403);
+
+  // Barrière de sécurité par rôle (UI masquée ≠ protection).
+  const allowed = isWrite
+    ? canWriteTable(member.role, table)
+    : canReadTable(member.role, table);
+  if (!allowed) return fail(`forbidden:${member.role}`, 403);
 
   const filters = Array.isArray(body.filters) ? body.filters : [];
   // Garde-fou : jamais d'update/delete sans filtre — éviterait de toucher
