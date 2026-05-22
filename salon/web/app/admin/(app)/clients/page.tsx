@@ -4,6 +4,12 @@ import { Search, MessageCircle, Phone } from 'lucide-react';
 import { supabase, uniqueChannel } from '@/lib/admin-db';
 import { PageHeader } from '@/components/admin/PageHeader';
 import type { Client } from '@/lib/types';
+import {
+  clientSegment,
+  SEGMENTS,
+  SEGMENT_ORDER,
+  type SegmentKey,
+} from '@/lib/segments';
 
 function fmt(xof: number) {
   return new Intl.NumberFormat('fr-FR').format(xof);
@@ -24,6 +30,7 @@ function relativeDate(iso: string | null) {
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [query, setQuery] = useState('');
+  const [seg, setSeg] = useState<'all' | SegmentKey>('all');
   const [loading, setLoading] = useState(true);
 
   async function load() {
@@ -46,16 +53,28 @@ export default function ClientsPage() {
     };
   }, []);
 
+  // Compte par segment (sur l'ensemble, pas la vue filtrée)
+  const counts = useMemo(() => {
+    const m = new Map<SegmentKey, number>();
+    clients.forEach((c) => {
+      const k = clientSegment(c);
+      m.set(k, (m.get(k) ?? 0) + 1);
+    });
+    return m;
+  }, [clients]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return clients;
-    return clients.filter(
-      (c) =>
+    return clients.filter((c) => {
+      if (seg !== 'all' && clientSegment(c) !== seg) return false;
+      if (!q) return true;
+      return (
         c.name.toLowerCase().includes(q) ||
         c.phone.toLowerCase().includes(q) ||
-        c.email?.toLowerCase().includes(q),
-    );
-  }, [clients, query]);
+        (c.email?.toLowerCase().includes(q) ?? false)
+      );
+    });
+  }, [clients, query, seg]);
 
   const total = clients.length;
   const totalSpent = clients.reduce((sum, c) => sum + (c.total_spent_xof || 0), 0);
@@ -93,10 +112,37 @@ export default function ClientsPage() {
         />
       </div>
 
+      {/* Filtres par segment */}
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterPill active={seg === 'all'} onClick={() => setSeg('all')}>
+          Toutes
+        </FilterPill>
+        {SEGMENT_ORDER.map((k) => {
+          const n = counts.get(k) ?? 0;
+          if (n === 0) return null;
+          return (
+            <FilterPill
+              key={k}
+              active={seg === k}
+              onClick={() => setSeg(k)}
+              badge={n}
+              tone={SEGMENTS[k].color}
+              title={SEGMENTS[k].hint}
+            >
+              {SEGMENTS[k].label}
+            </FilterPill>
+          );
+        })}
+      </div>
+
       {loading && <div className="text-sm text-muted">Chargement…</div>}
       {!loading && filtered.length === 0 && (
         <div className="surface px-6 py-12 text-center text-sm text-muted">
-          {clients.length === 0 ? 'Aucune cliente enregistrée.' : 'Aucun résultat.'}
+          {clients.length === 0
+            ? 'Aucune cliente enregistrée.'
+            : seg !== 'all'
+              ? 'Aucune cliente dans ce segment.'
+              : 'Aucun résultat.'}
         </div>
       )}
 
@@ -113,7 +159,12 @@ export default function ClientsPage() {
                 {String(i + 1).padStart(2, '0')}
               </span>
               <div className="col-span-10 md:col-span-4">
-                <div className="font-display text-xl font-medium tracking-tight">{c.name}</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-display text-xl font-medium tracking-tight">
+                    {c.name}
+                  </span>
+                  <SegmentBadge k={clientSegment(c)} />
+                </div>
                 <div className="mt-1 text-[11px] uppercase tracking-[0.2em] font-mono" style={{ color: 'rgb(var(--muted))' }}>
                   {c.phone}
                 </div>
@@ -180,5 +231,66 @@ function Stat({ label, value }: { label: string; value: string }) {
         {label}
       </div>
     </div>
+  );
+}
+
+function SegmentBadge({ k }: { k: SegmentKey }) {
+  const s = SEGMENTS[k];
+  return (
+    <span
+      className="inline-flex items-center border px-1.5 py-0.5 text-[9px] uppercase tracking-[0.18em]"
+      style={{ borderColor: s.color, color: s.color }}
+      title={s.hint}
+    >
+      {s.label}
+    </span>
+  );
+}
+
+function FilterPill({
+  active,
+  onClick,
+  children,
+  badge,
+  tone,
+  title,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  badge?: number;
+  tone?: string;
+  title?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className="border px-3 py-1.5 text-[11px] uppercase tracking-[0.24em] transition-colors"
+      style={{
+        borderColor: 'rgb(var(--line))',
+        background: active ? 'rgb(var(--ink))' : 'transparent',
+        color: active ? 'rgb(var(--bg))' : 'rgb(var(--ink))',
+      }}
+    >
+      {tone && (
+        <span
+          className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle"
+          style={{ background: active ? 'rgb(var(--bg))' : tone }}
+        />
+      )}
+      {children}
+      {badge !== undefined && (
+        <span
+          className="ml-2 rounded-full px-1.5 py-0.5 text-[9px]"
+          style={{
+            background: active ? 'rgba(255,255,255,0.2)' : 'rgb(var(--surface-2))',
+            color: active ? 'rgb(var(--bg))' : 'rgb(var(--ink))',
+          }}
+        >
+          {badge}
+        </span>
+      )}
+    </button>
   );
 }

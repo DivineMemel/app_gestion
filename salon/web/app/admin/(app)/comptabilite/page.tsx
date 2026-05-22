@@ -1,6 +1,12 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { Download, TrendingUp, TrendingDown } from 'lucide-react';
+import {
+  Download,
+  TrendingUp,
+  TrendingDown,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { supabase } from '@/lib/admin-db';
 import { PageHeader } from '@/components/admin/PageHeader';
 import type { MonthlyPnL, ExpenseCategory } from '@/lib/types';
@@ -27,6 +33,8 @@ export default function ComptabilitePage() {
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
   const [cats, setCats] = useState<ExpenseCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  // Index du mois affiché en grand format (0 = mois le plus récent)
+  const [idx, setIdx] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -49,8 +57,10 @@ export default function ComptabilitePage() {
     })();
   }, []);
 
-  const current = pnl[0];
-  const previous = pnl[1];
+  const current = pnl[idx];
+  const previous = pnl[idx + 1];
+  const canOlder = idx < pnl.length - 1;
+  const canNewer = idx > 0;
 
   const trend = useMemo(() => {
     if (!current || !previous) return null;
@@ -133,8 +143,30 @@ export default function ComptabilitePage() {
           className="surface px-8 py-10 md:px-12"
           style={{ borderColor: 'rgb(var(--line))' }}
         >
-          <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <div className="eyebrow">{monthLabel(current.month)}</div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIdx((i) => Math.min(i + 1, pnl.length - 1))}
+                disabled={!canOlder}
+                aria-label="Mois précédent"
+                className="border h-7 w-7 grid place-items-center transition-colors hover:bg-[rgb(var(--surface-2))] disabled:opacity-30 disabled:hover:bg-transparent"
+                style={{ borderColor: 'rgb(var(--line))' }}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
+              </button>
+              <div className="eyebrow capitalize min-w-[9rem] text-center">
+                {monthLabel(current.month)}
+              </div>
+              <button
+                onClick={() => setIdx((i) => Math.max(i - 1, 0))}
+                disabled={!canNewer}
+                aria-label="Mois suivant"
+                className="border h-7 w-7 grid place-items-center transition-colors hover:bg-[rgb(var(--surface-2))] disabled:opacity-30 disabled:hover:bg-transparent"
+                style={{ borderColor: 'rgb(var(--line))' }}
+              >
+                <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+              </button>
+            </div>
             {trend && (
               <div
                 className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.2em]"
@@ -148,7 +180,7 @@ export default function ComptabilitePage() {
                   <TrendingDown className="h-3.5 w-3.5" strokeWidth={1.5} />
                 )}
                 {trend.delta >= 0 ? '+' : ''}
-                {fmt(trend.delta)} FCFA vs mois dernier
+                {fmt(trend.delta)} FCFA vs mois précédent
                 {trend.pct !== null && ` (${trend.pct >= 0 ? '+' : ''}${trend.pct}%)`}
               </div>
             )}
@@ -250,11 +282,16 @@ export default function ComptabilitePage() {
               <span className="text-right">Dépenses</span>
               <span className="text-right">Bénéfice</span>
             </div>
-            {pnl.map((p) => (
-              <div
+            {pnl.map((p, i) => (
+              <button
                 key={p.month}
-                className="bg-[rgb(var(--bg))] grid items-center gap-2 px-5 py-3 text-[13px]"
-                style={{ gridTemplateColumns: '1fr repeat(3, minmax(8rem, auto))' }}
+                onClick={() => setIdx(i)}
+                className="grid w-full items-center gap-2 px-5 py-3 text-left text-[13px] transition-colors"
+                style={{
+                  gridTemplateColumns: '1fr repeat(3, minmax(8rem, auto))',
+                  background:
+                    i === idx ? 'rgb(var(--surface-2))' : 'rgb(var(--bg))',
+                }}
               >
                 <span className="capitalize">{monthLabel(p.month)}</span>
                 <span className="text-right tabular-nums">
@@ -272,7 +309,7 @@ export default function ComptabilitePage() {
                 >
                   {fmt(p.profit_xof)}
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         </section>

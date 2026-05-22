@@ -14,12 +14,43 @@ function todayISO() {
   return d.toISOString().slice(0, 10);
 }
 
+type Period = 'month' | 'lastmonth' | 'd90' | 'year' | 'all';
+
+const PERIODS: { key: Period; label: string }[] = [
+  { key: 'month', label: 'Ce mois' },
+  { key: 'lastmonth', label: 'Mois dernier' },
+  { key: 'd90', label: '90 jours' },
+  { key: 'year', label: 'Cette année' },
+  { key: 'all', label: 'Tout' },
+];
+
+// Renvoie la borne de début (incluse) et de fin (exclue) d'une période.
+function periodRange(period: Period): { start: Date | null; end: Date | null } {
+  const now = new Date();
+  switch (period) {
+    case 'month':
+      return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: null };
+    case 'lastmonth':
+      return {
+        start: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+        end: new Date(now.getFullYear(), now.getMonth(), 1),
+      };
+    case 'd90':
+      return { start: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000), end: null };
+    case 'year':
+      return { start: new Date(now.getFullYear(), 0, 1), end: null };
+    case 'all':
+      return { start: null, end: null };
+  }
+}
+
 export default function DepensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [cats, setCats] = useState<ExpenseCategory[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [period, setPeriod] = useState<Period>('month');
 
   async function load() {
     const [{ data: e }, { data: c }, { data: s }] = await Promise.all([
@@ -44,14 +75,29 @@ export default function DepensesPage() {
     };
   }, []);
 
+  // Dépenses de la période sélectionnée
+  const visible = useMemo(() => {
+    const { start, end } = periodRange(period);
+    return expenses.filter((e) => {
+      const d = new Date(e.paid_at);
+      if (start && d < start) return false;
+      if (end && d >= end) return false;
+      return true;
+    });
+  }, [expenses, period]);
+
   const stats = useMemo(() => {
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthExpenses = expenses.filter((e) => new Date(e.paid_at) >= monthStart);
     const total = expenses.reduce((s, e) => s + e.amount_xof, 0);
-    const month = monthExpenses.reduce((s, e) => s + e.amount_xof, 0);
-    return { total, month, count: expenses.length, monthCount: monthExpenses.length };
-  }, [expenses]);
+    const periodTotal = visible.reduce((s, e) => s + e.amount_xof, 0);
+    return {
+      total,
+      count: expenses.length,
+      periodTotal,
+      periodCount: visible.length,
+    };
+  }, [expenses, visible]);
+
+  const periodLabel = PERIODS.find((p) => p.key === period)?.label ?? '';
 
   const catById = useMemo(() => new Map(cats.map((c) => [c.id, c])), [cats]);
   const sectorById = useMemo(() => new Map(sectors.map((s) => [s.id, s])), [sectors]);
@@ -76,7 +122,11 @@ export default function DepensesPage() {
       />
 
       <div className="grid gap-px bg-[rgb(var(--line))] sm:grid-cols-3">
-        <Stat label="Ce mois-ci" value={`${fmt(stats.month)} FCFA`} note={`${stats.monthCount} sorties`} />
+        <Stat
+          label={periodLabel}
+          value={`${fmt(stats.periodTotal)} FCFA`}
+          note={`${stats.periodCount} sortie${stats.periodCount > 1 ? 's' : ''}`}
+        />
         <Stat label="Total cumulé" value={`${fmt(stats.total)} FCFA`} note={`${stats.count} sorties`} />
         <Stat
           label="Dernière sortie"
@@ -87,17 +137,32 @@ export default function DepensesPage() {
         />
       </div>
 
+      {/* Filtres de période */}
+      <div className="flex flex-wrap items-center gap-2">
+        {PERIODS.map((p) => (
+          <FilterPill
+            key={p.key}
+            active={period === p.key}
+            onClick={() => setPeriod(p.key)}
+          >
+            {p.label}
+          </FilterPill>
+        ))}
+      </div>
+
       {adding && <ExpenseForm cats={cats} sectors={sectors} onDone={() => setAdding(false)} />}
 
       {loading && <div className="text-sm text-muted">Chargement…</div>}
-      {!loading && expenses.length === 0 && (
+      {!loading && visible.length === 0 && (
         <div className="surface px-6 py-12 text-center text-sm text-muted">
-          Aucune dépense saisie.
+          {expenses.length === 0
+            ? 'Aucune dépense saisie.'
+            : `Aucune dépense sur cette période (${periodLabel.toLowerCase()}).`}
         </div>
       )}
 
       <ul className="divide-y" style={{ borderColor: 'rgb(var(--line))' }}>
-        {expenses.map((e) => {
+        {visible.map((e) => {
           const cat = e.category_id ? catById.get(e.category_id) : null;
           const sec = e.sector_id ? sectorById.get(e.sector_id) : null;
           const d = new Date(e.paid_at);
@@ -151,6 +216,30 @@ export default function DepensesPage() {
         })}
       </ul>
     </div>
+  );
+}
+
+function FilterPill({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="border px-3 py-1.5 text-[11px] uppercase tracking-[0.24em] transition-colors"
+      style={{
+        borderColor: 'rgb(var(--line))',
+        background: active ? 'rgb(var(--ink))' : 'transparent',
+        color: active ? 'rgb(var(--bg))' : 'rgb(var(--ink))',
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
