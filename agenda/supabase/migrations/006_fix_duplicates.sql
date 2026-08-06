@@ -73,7 +73,7 @@ from norm n
 join keep k on k.np = n.np;
 
 -- Remonte les infos des doublons sur la fiche conservée AVANT de les
--- supprimer : sans `auto_reply_sent`, Eric renverrait le message d'accueil
+-- supprimer : sans `auto_reply_sent`, le message d'accueil repartirait
 -- à une cliente qui l'a déjà reçu.
 update clients c set
   auto_reply_sent = agg.any_sent,

@@ -340,8 +340,8 @@ export function seed(): Record<string, Row[]> {
     ],
 
     team_members: [
-      { id: 'm1', name: 'Adrigba Kossi Eric', email: 'nadalservices97@gmail.com',
-        role: 'patron', status: 'active', phone: '+225 07 04 74 03 18', created_at: ilY(200) },
+      { id: 'm1', name: 'Kouassi Assamoi', email: 'patron@nadalservices.ci',
+        role: 'patron', status: 'active', phone: '0707112244', created_at: ilY(200) },
       { id: 'm2', name: 'Awa Sanogo', email: 'awa@nadalservices.ci',
         role: 'gerant', status: 'active', phone: '0709112233', created_at: ilY(90) },
       { id: 'm3', name: 'Yao Kouassi', email: 'yao@nadalservices.ci',

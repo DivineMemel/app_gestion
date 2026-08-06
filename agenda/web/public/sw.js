@@ -12,10 +12,10 @@ self.addEventListener('push', (event) => {
   try {
     data = event.data ? event.data.json() : {};
   } catch (e) {
-    data = { title: 'Gestion Eric', body: event.data ? event.data.text() : '' };
+    data = { title: 'Agenda', body: event.data ? event.data.text() : '' };
   }
 
-  const title = data.title || 'Gestion Eric';
+  const title = data.title || 'Agenda';
   const options = {
     body: data.body || '',
     icon: '/icon-192.png',

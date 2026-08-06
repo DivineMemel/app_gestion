@@ -1,6 +1,6 @@
 {
-  "name": "Gestion Eric",
-  "short_name": "Eric",
+  "name": "Agenda — tri WhatsApp",
+  "short_name": "Agenda",
   "description": "Tri intelligent des messages WhatsApp",
   "start_url": "/",
   "display": "standalone",

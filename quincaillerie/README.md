@@ -1,8 +1,8 @@
 # NADAL SERVICES — SaaS de gestion
 
 Vitrine + commande en ligne + back-office complet pour NADAL SERVICES
-(Adrigba Kossi Eric, Bingerville) : staff-plomberie, décoration intérieure,
-fosse septique biodigesteur et vente de matériaux décoratifs.
+(Bingerville, Abidjan) : staff-plomberie, décoration intérieure, fosse septique
+biodigesteur et vente de matériaux décoratifs.
 
 Caisse, stock, ardoises, devis de chantier, fournisseurs, comptabilité.
 

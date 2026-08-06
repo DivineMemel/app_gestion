@@ -1,6 +1,8 @@
-# Gestion Eric — WhatsApp automation
+# Agenda — tri WhatsApp & rendez-vous automatiques
 
-Outil pour trier et prioriser les messages WhatsApp d'Eric (décoration + fosse septique).
+Outil de tri et de priorisation des messages WhatsApp d'une petite entreprise.
+Les catégories sont définies en base : l'outil s'adapte au métier, il n'est
+câblé sur aucune activité en particulier.
 
 ## Architecture
 
@@ -68,7 +70,8 @@ npm install
 npm run dev
 ```
 
-Le QR s'affiche dans le terminal **et** est sauvé en DB. Eric scanne avec WhatsApp → connecté.
+Le QR s'affiche dans le terminal **et** est sauvé en DB. Le titulaire du compte
+le scanne depuis WhatsApp → connecté.
 
 ### 6. Web (local)
 

@@ -1,8 +1,8 @@
 -- ============================================================
--- Schema for Eric's WhatsApp management tool
+-- Schéma de l'outil de gestion WhatsApp
 -- ============================================================
 
--- Categories: Eric peut en ajouter / modifier dynamiquement
+-- Catégories : ajoutables et modifiables dynamiquement depuis l'app
 create table if not exists categories (
   id uuid primary key default gen_random_uuid(),
   slug text unique not null,           -- ex: 'fosse_septique', 'decoration'
@@ -97,7 +97,7 @@ alter publication supabase_realtime add table appointments;
 alter publication supabase_realtime add table whatsapp_status;
 
 -- ============================================================
--- RLS minimal (un seul user — Eric — donc on garde ça simple)
+-- RLS minimal (un seul utilisateur : on garde ça simple)
 -- Pour démarrer : on désactive RLS, le worker utilise service_role
 -- et le web utilise anon. À durcir plus tard si besoin.
 -- ============================================================
