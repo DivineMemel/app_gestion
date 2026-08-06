@@ -32,6 +32,10 @@ const RELATIONS: Record<string, Record<string, { table: string; fk: string; many
   purchase_orders: { suppliers: { table: 'suppliers', fk: 'supplier_id' } },
   purchase_order_items: { products: { table: 'products', fk: 'product_id' } },
   stock_movements: { products: { table: 'products', fk: 'product_id' } },
+  supply_entries: { suppliers: { table: 'suppliers', fk: 'supplier_id' } },
+  supply_entry_items: { products: { table: 'products', fk: 'product_id' } },
+  stock_count_items: { products: { table: 'products', fk: 'product_id' } },
+  stock_counts: { categories: { table: 'categories', fk: 'category_id' } },
 };
 
 let cache: Tables | null = null;
@@ -88,6 +92,27 @@ function vue(nom: string, t: Tables): Row[] {
           Number(a.stock_qty) - Number(a.min_stock) -
           (Number(b.stock_qty) - Number(b.min_stock)),
       );
+  }
+
+  if (nom === 'v_appro_a_valoriser') {
+    return (t.supply_entries ?? [])
+      .filter((e) => e.status === 'saisi')
+      .map((e) => {
+        const lignes = (t.supply_entry_items ?? []).filter(
+          (i) => i.supply_entry_id === e.id,
+        );
+        return {
+          id: e.id,
+          number: e.number,
+          received_at: e.received_at,
+          supplier_name:
+            t.suppliers.find((s) => s.id === e.supplier_id)?.name ?? null,
+          nb_lignes: lignes.length,
+          qty_totale: lignes.reduce((n, l) => n + Number(l.qty_base), 0),
+        };
+      })
+      .filter((e) => e.nb_lignes > 0)
+      .sort((a, b) => String(a.received_at).localeCompare(String(b.received_at)));
   }
 
   if (nom === 'v_customer_balances') {
@@ -608,6 +633,153 @@ export function executerRpc(
     d.converted_sale_id = (res.data as Row).id;
     sauver();
     return res;
+  }
+
+  // ---- Arrivages -----------------------------------------------------------
+  if (fn === 'post_supply_entry') {
+    const e = (t.supply_entries ?? []).find((x) => x.id === args.p_entry_id);
+    if (!e) return { data: null, error: { message: 'Arrivage introuvable.' } };
+    if (e.status !== 'brouillon') {
+      return { data: null, error: { message: `L'arrivage ${e.number} est déjà saisi.` } };
+    }
+    const lignes = (t.supply_entry_items ?? []).filter(
+      (i) => i.supply_entry_id === e.id,
+    );
+    if (lignes.length === 0) {
+      return { data: null, error: { message: 'Arrivage vide : aucune ligne à faire entrer.' } };
+    }
+
+    for (const l of lignes) {
+      const mv = {
+        id: uid(), product_id: l.product_id, qty_base: Number(l.qty_base),
+        kind: 'reception', ref_table: 'supply_entries', ref_id: e.id,
+        note: `Arrivage ${e.number}`, created_by: null,
+        created_at: new Date().toISOString(),
+      };
+      t.stock_movements.push(mv);
+      appliquerMouvement(t, mv);
+    }
+    e.status = 'saisi';
+    e.received_at = new Date().toISOString();
+    sauver();
+    return { data: null, error: null };
+  }
+
+  if (fn === 'value_supply_entry') {
+    const e = (t.supply_entries ?? []).find((x) => x.id === args.p_entry_id);
+    if (!e) return { data: null, error: { message: 'Arrivage introuvable.' } };
+    if (e.status === 'brouillon') {
+      return { data: null, error: { message: `Valide d'abord la saisie de ${e.number}.` } };
+    }
+    if (e.status === 'annule') {
+      return { data: null, error: { message: `L'arrivage ${e.number} est annulé.` } };
+    }
+    const lignes = (t.supply_entry_items ?? []).filter(
+      (i) => i.supply_entry_id === e.id,
+    );
+    if (lignes.some((l) => l.unit_cost_xof == null)) {
+      return {
+        data: null,
+        error: { message: "Toutes les lignes doivent avoir un prix d'achat." },
+      };
+    }
+    for (const l of lignes) {
+      if (Number(l.unit_cost_xof) > 0) {
+        const p = t.products.find((x) => x.id === l.product_id);
+        if (p) p.cost_price_xof = Number(l.unit_cost_xof);
+      }
+    }
+    e.status = 'valorise';
+    e.valued_at = new Date().toISOString();
+    sauver();
+    return { data: null, error: null };
+  }
+
+  if (fn === 'cancel_supply_entry') {
+    const e = (t.supply_entries ?? []).find((x) => x.id === args.p_entry_id);
+    if (!e) return { data: null, error: { message: 'Arrivage introuvable.' } };
+    if (e.status === 'annule') return { data: null, error: null };
+
+    if (e.status === 'saisi' || e.status === 'valorise') {
+      for (const l of (t.supply_entry_items ?? []).filter(
+        (i) => i.supply_entry_id === e.id,
+      )) {
+        const mv = {
+          id: uid(), product_id: l.product_id, qty_base: -Number(l.qty_base),
+          kind: 'ajustement', ref_table: 'supply_entries', ref_id: e.id,
+          note: `Annulation arrivage ${e.number}`, created_by: null,
+          created_at: new Date().toISOString(),
+        };
+        t.stock_movements.push(mv);
+        appliquerMouvement(t, mv);
+      }
+    }
+    e.status = 'annule';
+    sauver();
+    return { data: null, error: null };
+  }
+
+  // ---- Inventaire ----------------------------------------------------------
+  if (fn === 'open_stock_count') {
+    if (!t.stock_counts) t.stock_counts = [];
+    if (!t.stock_count_items) t.stock_count_items = [];
+    if (t.stock_counts.some((c) => c.status === 'en_cours')) {
+      return {
+        data: null,
+        error: { message: "Une campagne d'inventaire est déjà en cours." },
+      };
+    }
+    const id = uid();
+    const num = numero(t, 'stock_counts', 'INV', 3);
+    const cat = (args.p_category_id ?? null) as string | null;
+
+    t.stock_counts.push({
+      id, number: num, status: 'en_cours', category_id: cat,
+      note: (args.p_note as string) ?? null, started_by: null,
+      validated_by: null, validated_at: null,
+      created_at: new Date().toISOString(),
+    });
+    for (const p of t.products.filter(
+      (x) => x.active && (!cat || x.category_id === cat),
+    )) {
+      t.stock_count_items.push({
+        id: uid(), stock_count_id: id, product_id: p.id,
+        qty_theorique: Number(p.stock_qty), qty_comptee: null, note: null,
+      });
+    }
+    sauver();
+    return { data: { id, number: num }, error: null };
+  }
+
+  if (fn === 'validate_stock_count') {
+    const c = (t.stock_counts ?? []).find((x) => x.id === args.p_count_id);
+    if (!c) return { data: null, error: { message: 'Campagne introuvable.' } };
+    if (c.status !== 'en_cours') {
+      return { data: null, error: { message: `La campagne ${c.number} est déjà close.` } };
+    }
+
+    let nb = 0;
+    for (const it of (t.stock_count_items ?? []).filter(
+      (i) => i.stock_count_id === c.id && i.qty_comptee != null,
+    )) {
+      const p = t.products.find((x) => x.id === it.product_id);
+      if (!p) continue;
+      const ecart = Number(it.qty_comptee) - Number(p.stock_qty);
+      if (ecart !== 0) {
+        const mv = {
+          id: uid(), product_id: p.id, qty_base: ecart, kind: 'inventaire',
+          ref_table: 'stock_counts', ref_id: c.id, note: `Inventaire ${c.number}`,
+          created_by: null, created_at: new Date().toISOString(),
+        };
+        t.stock_movements.push(mv);
+        appliquerMouvement(t, mv);
+        nb += 1;
+      }
+    }
+    c.status = 'valide';
+    c.validated_at = new Date().toISOString();
+    sauver();
+    return { data: { number: c.number, ajustements: nb }, error: null };
   }
 
   return { data: null, error: { message: `Fonction inconnue : ${fn}` } };

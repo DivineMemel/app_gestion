@@ -64,10 +64,47 @@ Vitrine publique                    Back-office
 5. **Les quantités sont en `numeric`.** On vend du sable au m³ et de la
    peinture au litre, pas seulement des vis à l'unité.
 
+### Approvisionnement : saisie ≠ valorisation
+
+Deux chemins pour faire entrer de la marchandise :
+
+- **Commandes fournisseur** (`/admin/achats`) — on commande, puis on réceptionne.
+- **Arrivages** (`/admin/appro`) — la marchandise arrive sans commande préalable.
+
+L'arrivage sépare deux gestes qui, sur le terrain, sont faits par deux personnes
+différentes : celui qui réceptionne compte des sacs, celui qui connaît le prix
+payé n'est pas au dépôt.
+
+Le stock entre dès la **saisie** — la marchandise est physiquement là, la nier
+jusqu'à connaître son prix rendrait le stock faux. Le coût n'est mis à jour
+qu'à la **valorisation**, réservée aux rôles qui ont le droit de voir les prix
+d'achat (`canSeeCosts`). Le magasinier ne peut donc pas valoriser : ce n'est pas
+un interdit arbitraire, il n'a simplement pas l'information.
+
+Un prix valorisé s'applique **aux ventes à venir**. Les ventes déjà passées
+gardent le coût qu'elles ont figé — sinon les marges des mois clos changeraient
+rétroactivement.
+
+### Inventaire
+
+`/admin/inventaire` ouvre une **campagne** : la liste des articles est figée, on
+compte, on regarde les écarts, on valide. Chaque écart devient un mouvement dans
+le grand livre.
+
+- Un article laissé vide n'est **pas** un article à zéro : il n'est pas touché.
+- L'ajustement est calculé sur le stock au moment de la validation, donc après
+  validation le stock vaut exactement ce qui a été compté. Corollaire : une
+  vente saisie pendant le comptage serait absorbée par l'écart — on inventorie
+  boutique fermée.
+- Le périmètre est limitable à un rayon : compter toute la boutique d'un coup
+  n'est pas réaliste.
+
 ### Opérations atomiques
 
-Cinq fonctions Postgres : `create_sale`, `cancel_sale`,
-`receive_purchase_order`, `convert_order_to_sale`, `convert_quote_to_sale`.
+Dix fonctions Postgres : `create_sale`, `cancel_sale`,
+`receive_purchase_order`, `convert_order_to_sale`, `convert_quote_to_sale`,
+`post_supply_entry`, `value_supply_entry`, `cancel_supply_entry`,
+`open_stock_count`, `validate_stock_count`.
 
 Elles touchent chacune plusieurs tables — vente, lignes, mouvements de stock,
 règlement. Les exécuter en plusieurs allers-retours laisserait, à la moindre
@@ -124,7 +161,8 @@ sans toucher une ligne de code.
 ### 1. Supabase
 
 1. Créer un projet **dédié** (ne pas réutiliser celui d'Agenda ou de MUSE).
-2. SQL Editor → coller `supabase/migrations/001_init.sql` → Run.
+2. SQL Editor → coller `supabase/migrations/001_init.sql` → Run,
+   puis `002_appro_inventaire.sql` → Run.
 3. Créer un bucket Storage **public** nommé `media`.
 4. Project Settings → API → récupérer l'URL, la clé publique et la clé secrète.
 

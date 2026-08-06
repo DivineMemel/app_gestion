@@ -13,6 +13,8 @@ import {
   Boxes,
   Truck,
   ClipboardList,
+  PackagePlus,
+  ClipboardCheck,
   Wallet,
   TrendingUp,
   Settings,
@@ -48,8 +50,10 @@ const SECTIONS: { title: string; items: NavItem[] }[] = [
     items: [
       { href: '/admin/produits', label: 'Produits', icon: Package },
       { href: '/admin/stock', label: 'Stock', icon: Boxes },
+      { href: '/admin/appro', label: 'Arrivages', icon: PackagePlus },
+      { href: '/admin/inventaire', label: 'Inventaire', icon: ClipboardCheck },
       { href: '/admin/fournisseurs', label: 'Fournisseurs', icon: Truck },
-      { href: '/admin/achats', label: 'Réappro', icon: ClipboardList },
+      { href: '/admin/achats', label: 'Commandes fournisseur', icon: ClipboardList },
     ],
   },
   {

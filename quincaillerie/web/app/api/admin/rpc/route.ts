@@ -64,6 +64,20 @@ export async function POST(req: NextRequest) {
       p_method: args.p_method ?? 'especes',
       p_by: me,
     };
+  } else if (
+    fn === 'post_supply_entry' ||
+    fn === 'value_supply_entry' ||
+    fn === 'cancel_supply_entry'
+  ) {
+    payload = { p_entry_id: args.p_entry_id, p_by: me };
+  } else if (fn === 'open_stock_count') {
+    payload = {
+      p_category_id: args.p_category_id ?? null,
+      p_by: me,
+      p_note: args.p_note ?? null,
+    };
+  } else if (fn === 'validate_stock_count') {
+    payload = { p_count_id: args.p_count_id, p_by: me };
   } else {
     return fail('Fonction inconnue.', 400);
   }

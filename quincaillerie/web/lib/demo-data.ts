@@ -462,6 +462,29 @@ export function seed(): Record<string, Row[]> {
         unit_label: 'pièce', unit_factor: 1, qty: 1, unit_price_xof: 55000, line_total_xof: 55000 },
     ],
 
+    // Un arrivage déjà saisi mais pas encore valorisé : c'est exactement la
+    // situation que le module doit rendre visible — la marchandise est au
+    // dépôt, le patron doit encore dire ce qu'elle a coûté.
+    supply_entries: [
+      { id: 'ar1', number: 'AR-2026-0001', supplier_id: 'f3', purchase_order_id: null,
+        status: 'saisi', note: 'Arrivage Deco Import, reçu par Bakary.',
+        received_at: ilY(1), valued_at: null, created_by: null, valued_by: null,
+        created_at: ilY(1) },
+      { id: 'ar2', number: 'AR-2026-0002', supplier_id: 'f2', purchase_order_id: null,
+        status: 'valorise', note: null, received_at: ilY(14), valued_at: ilY(13),
+        created_by: null, valued_by: null, created_at: ilY(14) },
+    ],
+    supply_entry_items: [
+      { id: 'ari1', supply_entry_id: 'ar1', product_id: 'p09', qty_base: 48, unit_cost_xof: null, note: null },
+      { id: 'ari2', supply_entry_id: 'ar1', product_id: 'p05', qty_base: 20, unit_cost_xof: null, note: null },
+      { id: 'ari3', supply_entry_id: 'ar1', product_id: 'p10', qty_base: 32, unit_cost_xof: null, note: 'Deux paquets abîmés, mis de côté.' },
+      { id: 'ari4', supply_entry_id: 'ar2', product_id: 'p12', qty_base: 30, unit_cost_xof: 4200, note: null },
+      { id: 'ari5', supply_entry_id: 'ar2', product_id: 'p13', qty_base: 40, unit_cost_xof: 2200, note: null },
+    ],
+
+    stock_counts: [],
+    stock_count_items: [],
+
     expense_categories: POSTES.map((n, i) => ({ id: `ec${i}`, name: n, active: true })),
     expenses: [
       { id: 'e1', category_id: 'ec0', label: 'Loyer boutique — août', amount_xof: 250_000,

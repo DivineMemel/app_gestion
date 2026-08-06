@@ -23,6 +23,10 @@ const TABLES = [
   'orders',
   'order_items',
   'stock_movements',
+  'supply_entries',
+  'supply_entry_items',
+  'stock_counts',
+  'stock_count_items',
   'expenses',
   'expense_categories',
   'shop_settings',
@@ -31,6 +35,7 @@ const TABLES = [
 ] as const;
 
 const VIEWS = [
+  'v_appro_a_valoriser',
   'v_low_stock',
   'v_customer_balances',
   'v_monthly_pnl',
@@ -51,6 +56,7 @@ const COST_COLUMNS: Record<string, string[]> = {
   products: ['cost_price_xof'],
   sale_items: ['cost_price_xof'],
   purchase_order_items: ['unit_cost_xof'],
+  supply_entry_items: ['unit_cost_xof'],
 };
 
 type Body = Record<string, unknown>;

@@ -76,6 +76,11 @@ const RPC_TOUCHES: Record<string, string[]> = {
     'stock_movements',
   ],
   convert_quote_to_sale: ['quotes', 'sales', 'payments', 'products', 'stock_movements'],
+  post_supply_entry: ['supply_entries', 'products', 'stock_movements'],
+  value_supply_entry: ['supply_entries', 'products'],
+  cancel_supply_entry: ['supply_entries', 'products', 'stock_movements'],
+  open_stock_count: ['stock_counts', 'stock_count_items'],
+  validate_stock_count: ['stock_counts', 'products', 'stock_movements'],
 };
 
 async function post(path: string, body: unknown): Promise<Result> {

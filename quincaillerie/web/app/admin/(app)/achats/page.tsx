@@ -255,8 +255,8 @@ export default function AchatsPage() {
   return (
     <>
       <PageHeader
-        title="Réapprovisionnement"
-        subtitle={`${bons.length} bon${bons.length > 1 ? 's' : ''} de commande`}
+        title="Commandes fournisseur"
+        subtitle="On commande, puis on réceptionne. Pour la marchandise arrivée sans commande, passe par Arrivages."
         actions={
           peutEcrire ? (
             <>

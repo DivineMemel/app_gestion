@@ -34,6 +34,8 @@ export type ModuleKey =
   | 'stock'
   | 'fournisseurs'
   | 'achats'
+  | 'appro'
+  | 'inventaire'
   | 'depenses'
   | 'comptabilite'
   | 'comptes'
@@ -52,6 +54,8 @@ const MODULE_VIEW: Record<ModuleKey, Role[]> = {
   stock: ['patron', 'gerant', 'magasinier'],
   fournisseurs: ['patron', 'gerant', 'magasinier'],
   achats: ['patron', 'gerant', 'magasinier'],
+  appro: ['patron', 'gerant', 'magasinier'],
+  inventaire: ['patron', 'gerant', 'magasinier'],
   depenses: ['patron', 'gerant'],
   comptabilite: ['patron', 'gerant'],
   comptes: ['patron'],
@@ -71,6 +75,8 @@ const MODULE_WRITE: Record<ModuleKey, Role[]> = {
   stock: ['patron', 'gerant', 'magasinier'],
   fournisseurs: ['patron', 'gerant', 'magasinier'],
   achats: ['patron', 'gerant', 'magasinier'],
+  appro: ['patron', 'gerant', 'magasinier'],
+  inventaire: ['patron', 'gerant', 'magasinier'],
   depenses: ['patron', 'gerant'],
   comptabilite: [],
   comptes: ['patron'],
@@ -106,6 +112,8 @@ export function moduleForPath(pathname: string): ModuleKey | null {
     stock: 'stock',
     fournisseurs: 'fournisseurs',
     achats: 'achats',
+    appro: 'appro',
+    inventaire: 'inventaire',
     depenses: 'depenses',
     comptabilite: 'comptabilite',
     comptes: 'comptes',
@@ -144,6 +152,11 @@ const TABLE_RULES: Record<string, TableRule> = {
   purchase_orders: { read: DEPOT, write: DEPOT },
   purchase_order_items: { read: DEPOT, write: DEPOT },
   stock_movements: { read: 'any', write: DEPOT },
+  supply_entries: { read: DEPOT, write: DEPOT },
+  supply_entry_items: { read: DEPOT, write: DEPOT },
+  stock_counts: { read: DEPOT, write: DEPOT },
+  stock_count_items: { read: DEPOT, write: DEPOT },
+  v_appro_a_valoriser: { read: PILOTES, write: [] },
 
   // Finances.
   expenses: { read: PILOTES, write: PILOTES },
@@ -181,6 +194,15 @@ export const RPC_RULES: Record<string, Role[]> = {
   // Convertir, c'est encaisser : même droit que la caisse.
   convert_order_to_sale: COMPTOIR,
   convert_quote_to_sale: COMPTOIR,
+
+  // Faire entrer la marchandise : le dépôt.
+  post_supply_entry: DEPOT,
+  cancel_supply_entry: DEPOT,
+  // La valoriser : ceux qui ont le droit de voir les prix d'achat.
+  value_supply_entry: PILOTES,
+
+  open_stock_count: DEPOT,
+  validate_stock_count: DEPOT,
 };
 
 export function canCallRpc(role: Role, fn: string): boolean {
