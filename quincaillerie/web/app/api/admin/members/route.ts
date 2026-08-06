@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase-server';
+import { isSupabaseConfigured, supabaseAdmin } from '@/lib/supabase-server';
 import { hashPassword, resolveMember } from '@/lib/auth-server';
 import { ROLES, type Role } from '@/lib/permissions';
 
@@ -24,6 +24,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { ok: false, reason: 'Seul le patron peut ouvrir un compte.' },
       { status: 403 },
+    );
+  }
+
+  if (!isSupabaseConfigured()) {
+    return NextResponse.json(
+      { ok: false, reason: 'Base de données non configurée sur ce déploiement.' },
+      { status: 503 },
     );
   }
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase-server';
+import { isSupabaseConfigured, supabaseAdmin } from '@/lib/supabase-server';
 import { notifyOrder } from '@/lib/notify';
 
 // Commande passée depuis la vitrine. Route publique : tout ce qui vient du
@@ -23,6 +23,10 @@ function refus(reason: string, status = 400) {
 }
 
 export async function POST(req: Request) {
+  if (!isSupabaseConfigured()) {
+    return refus('Base de données non configurée sur ce déploiement.', 503);
+  }
+
   let body: Payload;
   try {
     body = (await req.json()) as Payload;

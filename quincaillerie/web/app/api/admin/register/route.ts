@@ -1,11 +1,18 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase-server';
+import { isSupabaseConfigured, supabaseAdmin } from '@/lib/supabase-server';
 import { hashPassword } from '@/lib/auth-server';
 import { ROLES, type Role } from '@/lib/permissions';
 
 // Inscription : crée un compte en `pending`. Aucun accès tant que le patron ne
 // l'a pas validé depuis la page Comptes — un employé ne s'auto-autorise pas.
 export async function POST(req: Request) {
+  if (!isSupabaseConfigured()) {
+    return NextResponse.json(
+      { ok: false, reason: 'Base de données non configurée sur ce déploiement.' },
+      { status: 503 },
+    );
+  }
+
   const body = (await req.json().catch(() => null)) as {
     name?: string;
     email?: string;

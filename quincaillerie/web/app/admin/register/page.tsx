@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Wordmark } from '@/components/Wordmark';
+import { db, MODE_DEMO } from '@/lib/admin-db';
 import { ROLE_HINTS, ROLE_LABELS, type Role } from '@/lib/permissions';
 
 // Le rôle « patron » est absent : il se donne depuis la page Comptes, jamais
@@ -27,6 +28,25 @@ export default function RegisterPage() {
     e.preventDefault();
     setBusy(true);
     setError(null);
+
+    // Sans base, le hachage serveur n'est pas joignable : on écrit la demande
+    // dans le magasin local pour que le patron la voie arriver dans Comptes,
+    // et que le parcours reste démontrable de bout en bout.
+    if (MODE_DEMO) {
+      const { error } = await db.from('team_members').insert({
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        phone: form.phone.trim() || null,
+        role: form.role,
+        status: 'pending',
+        password_hash: 'demo',
+      });
+      setBusy(false);
+      if (error) setError(error.message);
+      else setDone(true);
+      return;
+    }
+
     try {
       const res = await fetch('/api/admin/register', {
         method: 'POST',

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase-server';
+import { isSupabaseConfigured, supabaseAdmin } from '@/lib/supabase-server';
 import { verifyPassword } from '@/lib/auth-server';
 import { signSession } from '@/lib/session';
 
@@ -35,7 +35,14 @@ export async function POST(req: Request) {
     return res;
   }
 
-  // 2) Compte membre.
+  // 2) Compte membre. Sans base, seul le mot de passe maître fonctionne :
+  // on le dit, plutôt que de laisser croire à un mauvais mot de passe.
+  if (email && !isSupabaseConfigured()) {
+    return NextResponse.json(
+      { ok: false, reason: 'Base de données non configurée sur ce déploiement. Utilise le mot de passe patron.' },
+      { status: 503 },
+    );
+  }
   if (email) {
     const { data } = await supabaseAdmin()
       .from('team_members')
