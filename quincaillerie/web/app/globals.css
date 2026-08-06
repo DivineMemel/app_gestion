@@ -1,0 +1,238 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * NADAL SERVICES — Direction artistique d'après la charte.
+ *
+ * Le logo pose deux couleurs : un bleu profond (« NADAL », les bâtiments, la
+ * virgule) et un orange (l'engrenage, « SERVICES »). On leur donne des rôles
+ * distincts plutôt que de les alterner au hasard :
+ *
+ *   BLEU   → structure et action. Boutons principaux, liens, nav active.
+ *            Il porte le texte : sur fond clair il tient le contraste,
+ *            contrairement à l'orange.
+ *   ORANGE → énergie et vigilance. Aplats seulement : bandeau, engrenage du
+ *            logo, encadrés d'alerte. Jamais en petit texte.
+ *
+ * Le reste tient au terrain : contraste fort, cibles tactiles larges, champs
+ * pleins (une hairline élégante devient illisible en plein soleil) et chiffres
+ * tabulaires partout, sinon les totaux dansent d'une ligne à l'autre.
+ */
+
+@layer base {
+  :root {
+    --bg: 245 244 242;        /* béton clair */
+    --surface: 255 255 255;
+    --surface-2: 237 235 231;
+    --line: 223 220 214;
+    --line-strong: 197 193 185;
+    --ink: 24 24 22;
+    --ink-soft: 62 60 56;
+    --muted: 116 112 105;
+    --muted-2: 158 153 145;
+
+    --accent: 29 78 155;      /* bleu NADAL */
+    --accent-ink: 255 255 255;
+    --orange: 239 154 26;     /* orange NADAL — aplats uniquement */
+
+    --ok: 21 128 61;
+    --warn: 168 110 8;        /* orange lisible en texte (badges) */
+    --danger: 185 40 40;
+  }
+
+  :root.dark {
+    --bg: 18 18 17;
+    --surface: 28 28 26;
+    --surface-2: 38 37 34;
+    --line: 56 54 50;
+    --line-strong: 84 81 75;
+    --ink: 245 244 242;
+    --ink-soft: 214 211 204;
+    --muted: 150 146 138;
+    --muted-2: 110 106 99;
+
+    --accent: 125 175 245;    /* bleu éclairci : lisible sur fond sombre */
+    --accent-ink: 12 24 45;
+    --orange: 245 174 60;
+
+    --ok: 74 190 118;
+    --warn: 224 168 50;
+    --danger: 240 110 110;
+  }
+
+  body {
+    background: rgb(var(--bg));
+    color: rgb(var(--ink));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Les montants et les quantités s'alignent en colonne : chiffres tabulaires
+     par défaut, sinon les totaux dansent d'une ligne à l'autre. */
+  .tnum,
+  table td,
+  table th {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  .surface {
+    background: rgb(var(--surface));
+    border: 1px solid rgb(var(--line));
+  }
+  .surface-2 {
+    background: rgb(var(--surface-2));
+    border: 1px solid rgb(var(--line));
+  }
+  .text-muted { color: rgb(var(--muted)); }
+  .text-ink { color: rgb(var(--ink)); }
+  .text-ink-soft { color: rgb(var(--ink-soft)); }
+  .hairline { border-color: rgb(var(--line)); }
+
+  /* ---- Boutons — cibles larges, lisibles debout ---- */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-semibold transition-colors disabled:opacity-40 disabled:pointer-events-none;
+    border: 1px solid transparent;
+    border-radius: 2px;
+  }
+  .btn-primary {
+    @apply btn;
+    background: rgb(var(--accent));
+    color: rgb(var(--accent-ink));
+    border-color: rgb(var(--accent));
+  }
+  .btn-primary:hover { filter: brightness(0.92); }
+
+  .btn-solid {
+    @apply btn;
+    background: rgb(var(--ink));
+    color: rgb(var(--bg));
+    border-color: rgb(var(--ink));
+  }
+  .btn-solid:hover { filter: brightness(1.35); }
+
+  .btn-outline {
+    @apply btn;
+    background: transparent;
+    color: rgb(var(--ink));
+    border-color: rgb(var(--line-strong));
+  }
+  .btn-outline:hover { background: rgb(var(--surface-2)); }
+
+  .btn-ghost {
+    @apply btn;
+    background: transparent;
+    color: rgb(var(--muted));
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  .btn-ghost:hover { color: rgb(var(--ink)); background: rgb(var(--surface-2)); }
+
+  .btn-danger {
+    @apply btn;
+    background: transparent;
+    color: rgb(var(--danger));
+    border-color: rgb(var(--line-strong));
+  }
+  .btn-danger:hover { background: rgb(var(--danger)); color: rgb(var(--surface)); border-color: rgb(var(--danger)); }
+
+  /* ---- Champs — pleins et cadrés, pas de hairline ---- */
+  .input,
+  .select {
+    @apply w-full px-3 py-2.5 text-[15px] transition-colors focus:outline-none;
+    background: rgb(var(--surface));
+    color: rgb(var(--ink));
+    border: 1px solid rgb(var(--line-strong));
+    border-radius: 2px;
+  }
+  .input::placeholder { color: rgb(var(--muted-2)); }
+  .input:focus,
+  .select:focus {
+    border-color: rgb(var(--accent));
+    box-shadow: 0 0 0 3px rgb(var(--accent) / 0.15);
+  }
+  .input-lg {
+    @apply px-4 py-3.5 text-lg;
+  }
+
+  .label {
+    @apply block mb-1.5 text-[11px] font-semibold uppercase tracking-industrial;
+    color: rgb(var(--muted));
+  }
+
+  /* ---- Étiquettes d'état ---- */
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-industrial;
+    border: 1px solid rgb(var(--line-strong));
+    border-radius: 2px;
+    color: rgb(var(--muted));
+  }
+  .badge-ok     { color: rgb(var(--ok));     border-color: rgb(var(--ok) / 0.45);     background: rgb(var(--ok) / 0.08); }
+  .badge-warn   { color: rgb(var(--warn));   border-color: rgb(var(--warn) / 0.45);   background: rgb(var(--warn) / 0.08); }
+  .badge-danger { color: rgb(var(--danger)); border-color: rgb(var(--danger) / 0.45); background: rgb(var(--danger) / 0.08); }
+  .badge-accent { color: rgb(var(--accent)); border-color: rgb(var(--accent) / 0.45); background: rgb(var(--accent) / 0.08); }
+
+  /* ---- Titraille ---- */
+  .eyebrow {
+    @apply inline-block text-[10px] font-bold uppercase tracking-wide2;
+    color: rgb(var(--muted));
+  }
+  .title-display {
+    @apply font-display uppercase leading-[0.92] tracking-tight;
+  }
+
+  /* Bandeau de chantier — les deux couleurs de la charte, en aplat. */
+  .hazard {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      rgb(var(--orange)) 0 12px,
+      rgb(var(--accent)) 12px 24px
+    );
+  }
+
+  .glass {
+    background: color-mix(in srgb, rgb(var(--bg)) 88%, transparent);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+  }
+
+  /* ---- Tableaux denses ---- */
+  .tbl { @apply w-full text-[14px]; border-collapse: collapse; }
+  .tbl thead th {
+    @apply px-3 py-2 text-left text-[10px] font-bold uppercase tracking-industrial;
+    color: rgb(var(--muted));
+    border-bottom: 1px solid rgb(var(--line-strong));
+    white-space: nowrap;
+  }
+  .tbl tbody td {
+    @apply px-3 py-2.5;
+    border-bottom: 1px solid rgb(var(--line));
+  }
+  .tbl tbody tr:hover td { background: rgb(var(--surface-2)); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* Un tableau ne doit jamais faire scroller la page entière. */
+  .tbl-wrap { @apply w-full overflow-x-auto; }
+}
+
+/* ---- Impression : devis, factures, bons de livraison ------------------- */
+@media print {
+  .no-print { display: none !important; }
+  body {
+    background: #fff;
+    color: #000;
+  }
+  .print-sheet {
+    box-shadow: none !important;
+    border: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+}
