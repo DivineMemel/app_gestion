@@ -4,6 +4,7 @@ import { Plus, Search, X, Trash2, PackagePlus } from 'lucide-react';
 import { db, uniqueChannel } from '@/lib/admin-db';
 import { useCanSeeCosts, useCanWrite } from '@/lib/member';
 import { PageHeader } from '@/components/admin/PageHeader';
+import { ImageUpload } from '@/components/admin/ImageUpload';
 import { qty as fmtQty, slugify, xof } from '@/lib/format';
 import type { Category, ProductUnit } from '@/lib/types';
 
@@ -17,6 +18,7 @@ type Ligne = {
   stock_qty: number;
   min_stock: number | null;
   cost_price_xof?: number;
+  image_url: string | null;
   active: boolean;
   published: boolean;
   product_units: ProductUnit[];
@@ -38,6 +40,7 @@ const VIDE = {
   base_unit: 'pièce',
   min_stock: '',
   cost_price_xof: '',
+  image_url: null as string | null,
   active: true,
   published: true,
 };
@@ -64,7 +67,7 @@ export default function ProduitsPage() {
       db
         .from('products')
         .select(
-          'id, sku, name, description, category_id, base_unit, stock_qty, min_stock, cost_price_xof, active, published, product_units(id, product_id, label, factor, price_xof, is_default, position)',
+          'id, sku, name, description, category_id, base_unit, stock_qty, min_stock, cost_price_xof, image_url, active, published, product_units(id, product_id, label, factor, price_xof, is_default, position)',
         )
         .order('name'),
       db.from('categories').select('*').order('position'),
@@ -112,6 +115,7 @@ export default function ProduitsPage() {
       base_unit: l.base_unit,
       min_stock: l.min_stock == null ? '' : String(l.min_stock),
       cost_price_xof: l.cost_price_xof == null ? '' : String(l.cost_price_xof),
+      image_url: l.image_url,
       active: l.active,
       published: l.published,
     });
@@ -158,6 +162,7 @@ export default function ProduitsPage() {
       category_id: form.category_id || null,
       base_unit: form.base_unit.trim() || 'pièce',
       min_stock: form.min_stock === '' ? null : Number(form.min_stock),
+      image_url: form.image_url,
       active: form.active,
       published: form.published,
     };
@@ -473,6 +478,16 @@ export default function ProduitsPage() {
                   </p>
                 </div>
               )}
+
+              <div className="sm:col-span-2">
+                <ImageUpload
+                  label="Photo"
+                  folder="products"
+                  value={form.image_url}
+                  onChange={(url) => setForm((f) => ({ ...f, image_url: url }))}
+                  aide="Utile pour la vitrine (déco, sanitaire). Inutile sur un sac de ciment."
+                />
+              </div>
 
               <div className="flex items-end gap-4 sm:col-span-2">
                 <label className="flex items-center gap-2 text-sm">

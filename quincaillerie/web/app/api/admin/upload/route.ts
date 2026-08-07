@@ -4,7 +4,19 @@ import { resolveMember } from '@/lib/auth-server';
 import { canWriteModule, FOLDER_MODULE } from '@/lib/permissions';
 
 const BUCKET = 'media';
+// Le navigateur compresse avant d'envoyer ; cette limite n'est qu'un garde-fou
+// contre un client qui contournerait la compression.
 const MAX_BYTES = 8 * 1024 * 1024; // 8 Mo
+
+/** Extrait le chemin objet d'une URL publique du bucket, ou null. */
+function cheminDepuisUrl(url: string): string | null {
+  const marqueur = `/storage/v1/object/public/${BUCKET}/`;
+  const i = url.indexOf(marqueur);
+  if (i === -1) return null;
+  const chemin = url.slice(i + marqueur.length).split('?')[0];
+  // Un chemin remontant (..) sortirait du bucket : on refuse.
+  return chemin && !chemin.includes('..') ? decodeURIComponent(chemin) : null;
+}
 
 const EXT: Record<string, string> = {
   'image/png': 'png',
@@ -64,4 +76,36 @@ export async function POST(req: NextRequest) {
 
   const { data } = admin.storage.from(BUCKET).getPublicUrl(path);
   return NextResponse.json({ url: data.publicUrl, path });
+}
+
+/**
+ * Supprime un fichier du bucket.
+ *
+ * Sans cette route, remplacer ou retirer une image laisserait l'ancien objet
+ * dans le bucket pour toujours : au fil des corrections de fiches produit, le
+ * gigaoctet gratuit se remplirait de fichiers que plus rien ne référence.
+ */
+export async function DELETE(req: NextRequest) {
+  const member = await resolveMember(
+    req.cookies.get('qc_admin')?.value,
+    req.cookies.get('qc_session')?.value,
+  );
+  if (!member) return NextResponse.json({ error: 'Session expirée.' }, { status: 401 });
+
+  const body = (await req.json().catch(() => null)) as { url?: string } | null;
+  const chemin = body?.url ? cheminDepuisUrl(body.url) : null;
+  if (!chemin) {
+    return NextResponse.json({ error: 'URL hors du bucket.' }, { status: 400 });
+  }
+
+  // Le dossier détermine le module, donc le droit d'écriture.
+  const dossier = chemin.split('/')[0];
+  const mod = FOLDER_MODULE[dossier];
+  if (!mod || !canWriteModule(member.role, mod)) {
+    return NextResponse.json({ error: 'Droits insuffisants.' }, { status: 403 });
+  }
+
+  const { error } = await supabaseAdmin().storage.from(BUCKET).remove([chemin]);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }

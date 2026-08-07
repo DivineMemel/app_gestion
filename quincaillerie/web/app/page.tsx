@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowRight, MapPin, Phone, Store, Truck } from 'lucide-react';
 import { StoreNav } from '@/components/store/StoreNav';
 import { AddToCart } from '@/components/store/AddToCart';
@@ -117,6 +118,20 @@ export default async function AccueilPage() {
               const u = prixAffiche(p);
               return (
                 <article key={p.id} className="surface flex flex-col p-4">
+                  {p.image_url && (
+                    <div
+                      className="relative mb-3 aspect-[4/3] w-full overflow-hidden border"
+                      style={{ borderColor: 'rgb(var(--line))' }}
+                    >
+                      <Image
+                        src={p.image_url}
+                        alt={p.name}
+                        fill
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        className="object-cover"
+                      />
+                    </div>
+                  )}
                   <h3 className="font-medium">{p.name}</h3>
                   {p.description && (
                     <p

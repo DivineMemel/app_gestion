@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Image from 'next/image';
 import {
   Search,
   Plus,
@@ -29,6 +30,7 @@ type CatalogItem = {
   sku: string | null;
   base_unit: string;
   stock_qty: number;
+  image_url: string | null;
   product_units: ProductUnit[];
 };
 
@@ -83,7 +85,7 @@ export default function CaissePage() {
       db
         .from('products')
         .select(
-          'id, name, sku, base_unit, stock_qty, product_units(id, product_id, label, factor, price_xof, is_default, position)',
+          'id, name, sku, base_unit, stock_qty, image_url, product_units(id, product_id, label, factor, price_xof, is_default, position)',
         )
         .eq('active', true)
         .order('name'),
@@ -786,7 +788,23 @@ function CarteProduit({
   return (
     <div className="surface p-3">
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
+        {/* Vignette volontairement petite : au comptoir on cherche par nom,
+            l'image ne sert qu'à lever un doute sur un article de décoration. */}
+        {produit.image_url && (
+          <div
+            className="relative h-10 w-10 shrink-0 overflow-hidden border"
+            style={{ borderColor: 'rgb(var(--line))' }}
+          >
+            <Image
+              src={produit.image_url}
+              alt=""
+              fill
+              sizes="40px"
+              className="object-cover"
+            />
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
           <div className="truncate text-[14px] font-medium">{produit.name}</div>
           <div className="text-[12px]" style={{ color: 'rgb(var(--muted))' }}>
             {produit.sku && <span className="font-mono">{produit.sku} · </span>}
