@@ -177,7 +177,11 @@ export function AdminShell({
           className="mt-auto space-y-0.5 border-t px-2 pt-4"
           style={{ borderColor: 'rgb(var(--line))' }}
         >
-          <div className="pb-2">
+          {/* Le bloc d'identité mène au profil : c'est là qu'on le cherche. */}
+          <Link
+            href="/admin/profil"
+            className="block pb-2 transition-opacity hover:opacity-70"
+          >
             <div className="text-[13px] font-semibold" style={{ color: 'rgb(var(--ink))' }}>
               {memberName}
             </div>
@@ -185,9 +189,9 @@ export function AdminShell({
               className="text-[10px] font-bold uppercase tracking-wide2"
               style={{ color: 'rgb(var(--accent))' }}
             >
-              {ROLE_LABELS[role]}
+              {ROLE_LABELS[role]} · mon profil
             </div>
-          </div>
+          </Link>
 
           <Link
             href="/"
@@ -215,12 +219,13 @@ export function AdminShell({
         >
           <div className="flex items-center justify-between px-4 py-2.5">
             <Wordmark size="sm" href="/admin" name={shopName} />
-            <span
+            <Link
+              href="/admin/profil"
               className="text-[10px] font-bold uppercase tracking-wide2"
               style={{ color: 'rgb(var(--accent))' }}
             >
               {ROLE_LABELS[role]}
-            </span>
+            </Link>
           </div>
         </header>
 

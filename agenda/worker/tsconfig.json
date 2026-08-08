@@ -9,7 +9,26 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+
+    // Contournement d'un bug d'empaquetage de @whiskeysockets/baileys (≥ 6.7.9).
+    //
+    // Le `lib/index.d.ts` publié réexporte depuis `@whiskeysockets/baileys/src/...`,
+    // mais le paquet ne contient que `lib/` — `src/` n'est pas publié. Toutes les
+    // exports nommées (initAuthCreds, BufferJSON, proto, DisconnectReason…)
+    // disparaissent donc du typage, alors qu'elles existent bien au runtime : le
+    // JS compilé, lui, utilise des require relatifs.
+    //
+    // On redirige donc `src/*` vers `lib/*` pour TypeScript uniquement. Aucun
+    // effet sur le code exécuté.
+    //
+    // Rétrograder n'était pas une option : WhatsApp casse régulièrement les
+    // anciens clients Baileys, mieux vaut rester à jour.
+    // À retirer le jour où le paquet publiera des types corrects.
+    "baseUrl": ".",
+    "paths": {
+      "@whiskeysockets/baileys/src/*": ["./node_modules/@whiskeysockets/baileys/lib/*"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["src/**/*.test.ts"]
