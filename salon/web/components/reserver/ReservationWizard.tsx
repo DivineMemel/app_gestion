@@ -173,8 +173,14 @@ export function ReservationWizard() {
                     ? 'Ce créneau est passé, choisis-en un autre.'
                     : data?.reason === 'service_inactive'
                       ? 'Cette prestation n’est plus disponible.'
-                      : 'La réservation n’a pas pu aboutir. Réessayez ou contactez-nous par WhatsApp.',
+                      : data?.reason === 'creneau_pris'
+                        ? // Course entre deux clientes sur le même créneau : la
+                          // base a tranché. On recharge les créneaux pour que
+                          // celui-ci disparaisse de la liste.
+                          'Ce créneau vient d’être réservé. Choisis-en un autre.'
+                        : 'La réservation n’a pas pu aboutir. Réessayez ou contactez-nous par WhatsApp.',
                 );
+                if (data?.reason === 'creneau_pris') setStep('slot');
                 return;
               }
               setConfirmation(data.appointment);

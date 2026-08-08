@@ -78,7 +78,8 @@ function vue(nom: string, t: Tables): Row[] {
 
   if (nom === 'v_low_stock') {
     const enrichis: Row[] = t.products
-      .filter((p) => p.active)
+      // Une prestation n'a pas de stock : jamais en alerte de réappro.
+      .filter((p) => p.active && !p.is_service)
       .map((p) => ({
         ...p,
         min_stock: p.min_stock ?? params.default_min_stock,
@@ -382,7 +383,8 @@ function creerVente(t: Tables, p: Row): { data: unknown; error: { message: strin
     }
 
     const base = qte * facteur;
-    if (!negatifOk && Number(prod.stock_qty) < base) {
+    // Une prestation n'a pas de stock : ni contrôle, ni mouvement.
+    if (!prod.is_service && !negatifOk && Number(prod.stock_qty) < base) {
       return {
         data: null,
         error: {
@@ -399,10 +401,12 @@ function creerVente(t: Tables, p: Row): { data: unknown; error: { message: strin
       qty: qte, unit_price_xof: prix, line_total_xof: ligne,
       cost_price_xof: Number(prod.cost_price_xof ?? 0),
     });
-    mouvements.push({
-      id: uid(), product_id: prod.id, qty_base: -base, kind: 'vente',
-      ref_table: 'sales', ref_id: id, note: num, created_by: null, created_at: maintenant,
-    });
+    if (!prod.is_service) {
+      mouvements.push({
+        id: uid(), product_id: prod.id, qty_base: -base, kind: 'vente',
+        ref_table: 'sales', ref_id: id, note: num, created_by: null, created_at: maintenant,
+      });
+    }
   }
 
   const remise = Number(p.discount_xof ?? 0);
@@ -740,7 +744,7 @@ export function executerRpc(
       created_at: new Date().toISOString(),
     });
     for (const p of t.products.filter(
-      (x) => x.active && (!cat || x.category_id === cat),
+      (x) => x.active && !x.is_service && (!cat || x.category_id === cat),
     )) {
       t.stock_count_items.push({
         id: uid(), stock_count_id: id, product_id: p.id,

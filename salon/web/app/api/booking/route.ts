@@ -80,7 +80,13 @@ export async function POST(req: Request) {
     isNewClient = true;
   }
 
-  // 3. Insérer l'appointment
+  // 3. Insérer le rendez-vous.
+  //
+  // La contrainte `appointments_pas_de_chevauchement` (migration 006) est la
+  // seule protection fiable contre la double réservation : entre le moment où
+  // la cliente voit un créneau libre et celui où elle valide, une autre a pu
+  // le prendre. Vérifier ici avant d'insérer ne ferait que rétrécir la fenêtre,
+  // pas la fermer — on laisse donc la base trancher et on traduit son refus.
   const { data: appointment, error: apptErr } = await db
     .from('appointments')
     .insert({
@@ -96,7 +102,22 @@ export async function POST(req: Request) {
     .select('id, scheduled_at')
     .single();
 
-  if (apptErr || !appointment) return badRequest('appointment_insert_failed', 500);
+  if (apptErr) {
+    // 23P01 = exclusion_violation : le créneau vient d'être pris.
+    if ((apptErr as { code?: string }).code === '23P01') {
+      return NextResponse.json(
+        {
+          ok: false,
+          reason: 'creneau_pris',
+          message:
+            'Ce créneau vient d’être réservé par quelqu’un d’autre. Choisissez-en un autre.',
+        },
+        { status: 409 },
+      );
+    }
+    return badRequest('appointment_insert_failed', 500);
+  }
+  if (!appointment) return badRequest('appointment_insert_failed', 500);
 
   // 4. Journey event
   if (isNewClient) {

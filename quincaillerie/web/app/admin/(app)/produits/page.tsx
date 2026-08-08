@@ -19,6 +19,7 @@ type Ligne = {
   min_stock: number | null;
   cost_price_xof?: number;
   image_url: string | null;
+  is_service: boolean;
   active: boolean;
   published: boolean;
   product_units: ProductUnit[];
@@ -41,6 +42,7 @@ const VIDE = {
   min_stock: '',
   cost_price_xof: '',
   image_url: null as string | null,
+  is_service: false,
   active: true,
   published: true,
 };
@@ -67,7 +69,7 @@ export default function ProduitsPage() {
       db
         .from('products')
         .select(
-          'id, sku, name, description, category_id, base_unit, stock_qty, min_stock, cost_price_xof, image_url, active, published, product_units(id, product_id, label, factor, price_xof, is_default, position)',
+          'id, sku, name, description, category_id, base_unit, stock_qty, min_stock, cost_price_xof, image_url, is_service, active, published, product_units(id, product_id, label, factor, price_xof, is_default, position)',
         )
         .order('name'),
       db.from('categories').select('*').order('position'),
@@ -116,6 +118,7 @@ export default function ProduitsPage() {
       min_stock: l.min_stock == null ? '' : String(l.min_stock),
       cost_price_xof: l.cost_price_xof == null ? '' : String(l.cost_price_xof),
       image_url: l.image_url,
+      is_service: l.is_service,
       active: l.active,
       published: l.published,
     });
@@ -163,6 +166,8 @@ export default function ProduitsPage() {
       base_unit: form.base_unit.trim() || 'pièce',
       min_stock: form.min_stock === '' ? null : Number(form.min_stock),
       image_url: form.image_url,
+      is_service: form.is_service,
+      // Une prestation n'a pas de seuil d'alerte : elle n'entre pas en réappro.
       active: form.active,
       published: form.published,
     };
@@ -323,6 +328,9 @@ export default function ProduitsPage() {
                       <div className="font-medium">{l.name}</div>
                       <div className="text-[12px]" style={{ color: 'rgb(var(--muted))' }}>
                         {l.sku && <span className="font-mono">{l.sku}</span>}
+                        {l.is_service && (
+                          <span className="ml-2 badge badge-accent">Prestation</span>
+                        )}
                         {!l.active && <span className="ml-2 badge">Inactif</span>}
                         {l.active && !l.published && (
                           <span className="ml-2 badge">Hors vitrine</span>
@@ -488,6 +496,27 @@ export default function ProduitsPage() {
                   aide="Utile pour la vitrine (déco, sanitaire). Inutile sur un sac de ciment."
                 />
               </div>
+
+              <label className="flex items-start gap-3 sm:col-span-2">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={form.is_service}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, is_service: e.target.checked }))
+                  }
+                />
+                <span>
+                  <span className="block text-sm font-medium">
+                    Prestation (pas de stock)
+                  </span>
+                  <span className="block text-[12px]" style={{ color: 'rgb(var(--muted))' }}>
+                    Pose, forfait d’installation, terrassement, main-d’œuvre. Se
+                    vend sans contrôle de stock, n’entre ni dans l’inventaire ni
+                    dans les alertes de réappro.
+                  </span>
+                </span>
+              </label>
 
               <div className="flex items-end gap-4 sm:col-span-2">
                 <label className="flex items-center gap-2 text-sm">

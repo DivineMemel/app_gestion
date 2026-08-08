@@ -195,6 +195,8 @@ function construireProduits() {
       cost_price_xof: p.achat,
       active: true,
       published: p.publie !== false,
+      // Le rayon Prestations regroupe pose, forfaits et main-d'œuvre.
+      is_service: p.rayon === 'prestations',
       low_stock_alerted_at: null,
       created_at: ilY(120),
       updated_at: ilY(3),

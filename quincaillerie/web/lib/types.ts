@@ -38,6 +38,8 @@ export type Product = {
   min_stock: number | null;
   /** Absent des réponses pour les rôles vendeur/magasinier. */
   cost_price_xof?: number;
+  /** Prestation : pas de stock, pas de mouvement, hors inventaire. */
+  is_service: boolean;
   active: boolean;
   published: boolean;
   low_stock_alerted_at: string | null;
