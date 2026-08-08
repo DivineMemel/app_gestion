@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { StoreNav } from '@/components/store/StoreNav';
@@ -7,6 +8,26 @@ import { getCategories, getProducts, getShop, prixAffiche } from '@/lib/storefro
 import { qty as fmtQty } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
+
+// Le titre reprend le rayon consulté : « Plomberie — NADAL SERVICES » est une
+// bien meilleure entrée de résultat que « Catalogue » répété douze fois.
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ rayon?: string }>;
+}): Promise<Metadata> {
+  const { rayon } = await searchParams;
+  const rayons = await getCategories();
+  const actif = rayons.find((r) => r.slug === rayon);
+
+  return {
+    title: actif ? actif.name : 'Catalogue',
+    description: actif
+      ? `${actif.name} — disponible en boutique à Bingerville, Abidjan. Commande en ligne et retrait sur place.`
+      : 'Tout le catalogue NADAL SERVICES : staff, plomberie, décoration, fosse septique, matériaux décoratifs.',
+    alternates: { canonical: actif ? `/catalogue?rayon=${actif.slug}` : '/catalogue' },
+  };
+}
 
 export default async function CataloguePage({
   searchParams,

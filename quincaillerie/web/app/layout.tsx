@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Barlow_Condensed, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
+import { SITE_URL } from '@/lib/site';
 
 const sans = Inter({
   subsets: ['latin'],
@@ -25,11 +26,47 @@ const mono = JetBrains_Mono({
   weight: ['400', '500'],
 });
 
+const TITRE = 'NADAL SERVICES — Matériaux, décoration & prestations à Abidjan';
+const DESCRIPTION =
+  'Staff et faux plafond, plomberie, décoration intérieure, fosse septique biodigesteur et vente de matériaux décoratifs. Bingerville, Abidjan. Commande en ligne et retrait en boutique.';
+
 export const metadata: Metadata = {
-  title: 'NADAL SERVICES — Matériaux, décoration & prestations',
-  description:
-    'Staff, plomberie, décoration intérieure, fosse septique biodigesteur et vente de matériaux décoratifs. Bingerville, Abidjan.',
+  // Sans metadataBase, Next émet des URL relatives dans les balises Open Graph —
+  // que ni Google ni WhatsApp ne savent résoudre.
+  metadataBase: new URL(SITE_URL),
+  title: { default: TITRE, template: '%s — NADAL SERVICES' },
+  description: DESCRIPTION,
   manifest: '/manifest.json',
+  applicationName: 'NADAL SERVICES',
+  keywords: [
+    'quincaillerie Abidjan',
+    'fosse septique biodigesteur',
+    'staff faux plafond',
+    'décoration intérieure Abidjan',
+    'matériaux décoratifs',
+    'plomberie Bingerville',
+  ],
+  alternates: { canonical: '/' },
+  // WhatsApp est le premier canal de partage ici : sans ces balises, un lien
+  // envoyé à une cliente s'affiche en texte nu, sans titre ni image.
+  openGraph: {
+    type: 'website',
+    locale: 'fr_CI',
+    url: SITE_URL,
+    siteName: 'NADAL SERVICES',
+    title: TITRE,
+    description: DESCRIPTION,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: TITRE,
+    description: DESCRIPTION,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, 'max-image-preview': 'large' },
+  },
 };
 
 export const viewport: Viewport = {

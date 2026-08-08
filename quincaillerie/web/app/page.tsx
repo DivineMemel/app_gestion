@@ -4,10 +4,14 @@ import { ArrowRight, MapPin, Phone, Store, Truck } from 'lucide-react';
 import { StoreNav } from '@/components/store/StoreNav';
 import { AddToCart } from '@/components/store/AddToCart';
 import { Footer } from '@/components/store/Footer';
+import { DonneesStructurees } from '@/components/store/DonneesStructurees';
 import { getCategories, getProducts, getShop, prixAffiche } from '@/lib/storefront';
 import { xof } from '@/lib/format';
 
-export const dynamic = 'force-dynamic';
+// Régénérée toutes les 5 minutes plutôt qu'à chaque requête : la page est
+// alors servie par le CDN. Un stock affiché avec 5 minutes de retard sur la
+// vitrine est sans conséquence — la caisse, elle, lit toujours en direct.
+export const revalidate = 300;
 
 export default async function AccueilPage() {
   const [shop, rayons, produits] = await Promise.all([
@@ -20,6 +24,7 @@ export default async function AccueilPage() {
 
   return (
     <>
+      <DonneesStructurees shop={shop} />
       <StoreNav shopName={shop.name} phone={shop.phone} />
 
       {/* ---------- Bandeau ---------- */}
