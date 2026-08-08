@@ -8,6 +8,9 @@ import type { Role } from '@/lib/permissions';
 
 export type Member = { id: string; name: string; role: Role };
 
+/** Identifiant du propriétaire « maître » : ce n'est pas un uuid, jamais une FK. */
+export const MASTER_ID = 'owner-master';
+
 export function hashPassword(password: string): string {
   const salt = randomBytes(16);
   const hash = scryptSync(password, salt, 64);
@@ -35,7 +38,7 @@ export async function resolveMember(
 ): Promise<Member | null> {
   const secret = process.env.ADMIN_TOKEN;
   if (secret && masterCookie && masterCookie === secret) {
-    return { id: 'owner-master', name: 'Propriétaire', role: 'owner' };
+    return { id: MASTER_ID, name: 'Propriétaire', role: 'owner' };
   }
   if (!secret || !sessionCookie) return null;
 

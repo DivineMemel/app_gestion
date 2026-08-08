@@ -166,14 +166,15 @@ export function AdminShell({
         </div>
 
         <div className="mt-auto border-t pt-4 px-3 space-y-1" style={{ borderColor: 'rgb(var(--line))' }}>
-          <div className="px-0 pb-2">
+          {/* Le bloc d'identité mène au profil : c'est là qu'on le cherche. */}
+          <Link href="/admin/profil" className="block px-0 pb-2 transition-opacity hover:opacity-70">
             <div className="text-[13px] font-medium" style={{ color: 'rgb(var(--ink))' }}>
               {memberName}
             </div>
             <div className="text-[10px] uppercase tracking-[0.24em]" style={{ color: 'rgb(var(--muted))' }}>
-              {ROLE_LABELS[role]}
+              {ROLE_LABELS[role]} · mon profil
             </div>
-          </div>
+          </Link>
           {canView(role, 'comptes') && (
             <Link
               href="/admin/comptes"
