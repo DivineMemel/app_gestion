@@ -104,7 +104,11 @@ export default async function CataloguePage({
                     </div>
                   )}
                   <div className="flex items-start justify-between gap-2">
-                    <h2 className="font-medium">{p.name}</h2>
+                    <h2 className="font-medium">
+                      <Link href={`/produit/${p.slug ?? p.id}`} className="hover:underline">
+                        {p.name}
+                      </Link>
+                    </h2>
                     {rupture ? (
                       <span className="badge badge-danger shrink-0">Rupture</span>
                     ) : (

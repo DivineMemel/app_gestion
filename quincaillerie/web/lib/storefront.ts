@@ -19,6 +19,7 @@ const DEMO = !process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 export type StoreProduct = {
   id: string;
+  slug: string | null;
   name: string;
   description: string | null;
   sku: string | null;
@@ -94,7 +95,7 @@ export async function getProducts(categoryId?: string): Promise<StoreProduct[]> 
     let q = supabaseAdmin()
       .from('products')
       .select(
-        'id, name, description, sku, image_url, base_unit, stock_qty, category_id, product_units(id, product_id, label, factor, price_xof, is_default, position)',
+        'id, slug, name, description, sku, image_url, base_unit, stock_qty, category_id, product_units(id, product_id, label, factor, price_xof, is_default, position)',
       )
       .eq('active', true)
       .eq('published', true)
@@ -118,3 +119,47 @@ export function prixAffiche(p: StoreProduct): ProductUnit | null {
   );
   return unites[0] ?? null;
 }
+
+/** Un produit publié, par son adresse web. Null si inconnu ou dépublié. */
+export async function getProductBySlug(slug: string): Promise<StoreProduct | null> {
+  if (DEMO) {
+    const t = seed();
+    const p = (t.products as unknown as StoreProduct[]).find(
+      (x) => x.slug === slug || slugDemo(x.name) === slug,
+    );
+    if (!p) return null;
+    return {
+      ...p,
+      product_units: (t.product_units as unknown as ProductUnit[]).filter(
+        (u) => u.product_id === p.id,
+      ),
+    };
+  }
+
+  try {
+    const { data } = await supabaseAdmin()
+      .from('products')
+      .select(
+        'id, slug, name, description, sku, image_url, base_unit, stock_qty, category_id, product_units(id, product_id, label, factor, price_xof, is_default, position)',
+      )
+      .eq('slug', slug)
+      .eq('active', true)
+      .eq('published', true)
+      .maybeSingle();
+    return (data as StoreProduct) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Slug de repli pour le mode démo, dont le jeu de données n'en porte pas. */
+function slugDemo(nom: string): string {
+  return nom
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+export { slugDemo };
