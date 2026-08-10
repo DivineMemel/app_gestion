@@ -5,6 +5,8 @@ import { db, uniqueChannel } from '@/lib/admin-db';
 import { useCanSeeCosts, useCanWrite } from '@/lib/member';
 import { PageHeader } from '@/components/admin/PageHeader';
 import { ImageUpload } from '@/components/admin/ImageUpload';
+import { ChampUnite } from '@/components/admin/ChampUnite';
+import { UNITES_STOCK, libellesProposes } from '@/lib/unites';
 import { qty as fmtQty, slugify, xof } from '@/lib/format';
 import type { Category, ProductUnit } from '@/lib/types';
 
@@ -103,7 +105,9 @@ export default function ProduitsPage() {
   function ouvrirNouveau() {
     setEdition(null);
     setForm({ ...VIDE });
-    setUnites([{ label: 'pièce', factor: '1', price_xof: '', is_default: true }]);
+    // La première unité de vente est l'unité de stock elle-même : c'est le cas
+    // de loin le plus courant, autant l'avoir déjà rempli.
+    setUnites([{ label: VIDE.base_unit, factor: '1', price_xof: '', is_default: true }]);
     setOuvert(true);
   }
 
@@ -445,11 +449,10 @@ export default function ProduitsPage() {
 
               <div>
                 <label className="label">Unité de stock</label>
-                <input
-                  className="input"
+                <ChampUnite
                   value={form.base_unit}
-                  onChange={(e) => setForm((f) => ({ ...f, base_unit: e.target.value }))}
-                  placeholder="sac, barre, pièce, kg, m³…"
+                  onChange={(v) => setForm((f) => ({ ...f, base_unit: v }))}
+                  options={[...UNITES_STOCK]}
                 />
                 <p className="mt-1 text-[12px]" style={{ color: 'rgb(var(--muted))' }}>
                   L’unité dans laquelle le stock est compté.
@@ -564,28 +567,14 @@ export default function ProduitsPage() {
                 </div>
 
                 <p className="mb-2 text-[12px]" style={{ color: 'rgb(var(--muted))' }}>
-                  Le facteur dit combien d’unités de stock contient l’unité vendue.
-                  Ex. « palette » = 40 sacs → facteur 40.
+                  Saisis d’abord le facteur — combien d’unités de stock contient
+                  l’unité vendue — puis choisis le libellé : pour un facteur 40,
+                  la liste proposera « palette de 40 », « carton de 40 »…
                 </p>
 
                 <div className="space-y-2">
                   {unites.map((u, i) => (
                     <div key={i} className="flex flex-wrap items-end gap-2">
-                      <div className="min-w-32 flex-1">
-                        <label className="label">Libellé</label>
-                        <input
-                          className="input"
-                          value={u.label}
-                          placeholder="sac, palette, botte…"
-                          onChange={(e) =>
-                            setUnites((cur) =>
-                              cur.map((x, j) =>
-                                j === i ? { ...x, label: e.target.value } : x,
-                              ),
-                            )
-                          }
-                        />
-                      </div>
                       <div className="w-24">
                         <label className="label">Facteur</label>
                         <input
@@ -599,6 +588,24 @@ export default function ProduitsPage() {
                               ),
                             )
                           }
+                        />
+                      </div>
+                      {/* Le libellé se choisit APRÈS le facteur : c'est lui qui
+                          détermine les propositions (« carton de 12 »). */}
+                      <div className="min-w-36 flex-1">
+                        <label className="label">Libellé</label>
+                        <ChampUnite
+                          value={u.label}
+                          onChange={(v) =>
+                            setUnites((cur) =>
+                              cur.map((x, j) => (j === i ? { ...x, label: v } : x)),
+                            )
+                          }
+                          options={libellesProposes(
+                            form.base_unit,
+                            Number(u.factor.replace(',', '.')),
+                          )}
+                          placeholder="ex. fût de 200 L"
                         />
                       </div>
                       <div className="w-32">
