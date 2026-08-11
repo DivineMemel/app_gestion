@@ -7,6 +7,36 @@
 
 export type Role = 'patron' | 'gerant' | 'vendeur' | 'magasinier';
 
+/**
+ * Une personne porte UN OU PLUSIEURS rôles, et ses droits en sont l'UNION.
+ *
+ * Dans une quincaillerie de quartier, celui qui tient la caisse le matin
+ * réceptionne les camions l'après-midi. Avec un rôle unique il fallait choisir
+ * entre le priver d'un écran dont il a besoin, ou lui donner « gérant » et donc
+ * les marges. Un vendeur+magasinier fait les deux métiers sans jamais voir un
+ * prix d'achat : aucun de ses deux rôles ne le permet, l'union non plus.
+ *
+ * Toutes les fonctions ci-dessous prennent donc un TABLEAU. Le pluriel est dans
+ * le nom des paramètres pour que l'oubli se voie à la relecture.
+ */
+export type Roles = readonly Role[];
+
+/** Étiquette d'affichage quand une personne porte plusieurs rôles. */
+export function roleLabels(roles: Roles): string {
+  return roles.map((r) => ROLE_LABELS[r]).join(' · ');
+}
+
+/**
+ * Rôle « principal », pour les cas où il n'y a la place que d'un mot.
+ * Même règle que la colonne dérivée `team_members.role` en base.
+ */
+export function rolePrincipal(roles: Roles): Role {
+  if (roles.includes('patron')) return 'patron';
+  if (roles.includes('gerant')) return 'gerant';
+  if (roles.includes('vendeur')) return 'vendeur';
+  return 'magasinier';
+}
+
 export const ROLES: Role[] = ['patron', 'gerant', 'vendeur', 'magasinier'];
 
 export const ROLE_LABELS: Record<Role, string> = {
@@ -39,6 +69,7 @@ export type ModuleKey =
   | 'depenses'
   | 'comptabilite'
   | 'comptes'
+  | 'journal'
   | 'parametres';
 
 // Pages visibles (et donc accessibles) par rôle.
@@ -59,6 +90,9 @@ const MODULE_VIEW: Record<ModuleKey, Role[]> = {
   depenses: ['patron', 'gerant'],
   comptabilite: ['patron', 'gerant'],
   comptes: ['patron'],
+  // Le journal d'audit répond à « qui a fait ça ? ». C'est une question de
+  // patron, et la réponse cite nommément des employés.
+  journal: ['patron'],
   parametres: ['patron'],
 };
 
@@ -80,23 +114,25 @@ const MODULE_WRITE: Record<ModuleKey, Role[]> = {
   depenses: ['patron', 'gerant'],
   comptabilite: [],
   comptes: ['patron'],
+  // Un audit qu'on peut corriger n'est pas un audit.
+  journal: [],
   parametres: ['patron'],
 };
 
-export function canView(role: Role, m: ModuleKey): boolean {
-  return MODULE_VIEW[m].includes(role);
+export function canView(roles: Roles, m: ModuleKey): boolean {
+  return roles.some((r) => MODULE_VIEW[m].includes(r));
 }
 
-export function canWriteModule(role: Role, m: ModuleKey): boolean {
-  return MODULE_WRITE[m].includes(role);
+export function canWriteModule(roles: Roles, m: ModuleKey): boolean {
+  return roles.some((r) => MODULE_WRITE[m].includes(r));
 }
 
 /**
  * Prix d'achat, coût des marchandises et marge : réservés à ceux qui pilotent
  * la boutique. Le serveur retire ces colonnes des réponses pour les autres.
  */
-export function canSeeCosts(role: Role): boolean {
-  return role === 'patron' || role === 'gerant';
+export function canSeeCosts(roles: Roles): boolean {
+  return roles.some((r) => r === 'patron' || r === 'gerant');
 }
 
 export function moduleForPath(pathname: string): ModuleKey | null {
@@ -117,6 +153,7 @@ export function moduleForPath(pathname: string): ModuleKey | null {
     depenses: 'depenses',
     comptabilite: 'comptabilite',
     comptes: 'comptes',
+    journal: 'journal',
     parametres: 'parametres',
   };
   return seg ? (map[seg] ?? null) : 'dashboard';
@@ -126,7 +163,6 @@ export function moduleForPath(pathname: string): ModuleKey | null {
 // read 'any' = tout membre actif ; sinon liste de rôles. write = liste.
 type TableRule = { read: Role[] | 'any'; write: Role[] };
 
-const ALL: Role[] = ['patron', 'gerant', 'vendeur', 'magasinier'];
 const PILOTES: Role[] = ['patron', 'gerant'];
 const COMPTOIR: Role[] = ['patron', 'gerant', 'vendeur'];
 const DEPOT: Role[] = ['patron', 'gerant', 'magasinier'];
@@ -157,6 +193,9 @@ const TABLE_RULES: Record<string, TableRule> = {
   stock_counts: { read: DEPOT, write: DEPOT },
   stock_count_items: { read: DEPOT, write: DEPOT },
   v_appro_a_valoriser: { read: PILOTES, write: [] },
+  // Ce que les coupures réseau ont coûté en exactitude : à régulariser par le
+  // dépôt, c'est son métier.
+  v_stock_negatif: { read: DEPOT, write: [] },
 
   // Finances.
   expenses: { read: PILOTES, write: PILOTES },
@@ -165,7 +204,11 @@ const TABLE_RULES: Record<string, TableRule> = {
   // Administration.
   shop_settings: { read: 'any', write: ['patron'] },
   team_members: { read: ['patron'], write: ['patron'] },
-  push_subscriptions: { read: ALL, write: ALL },
+  // Le journal se lit, ne se corrige pas : un audit modifiable n'est pas un
+  // audit. Les abonnements push ne sont volontairement PAS exposés ici — ils
+  // ne servent qu'aux routes serveur, et leur clé étrangère vers team_members
+  // en faisait un chemin de traverse vers la table des comptes.
+  audit_log: { read: ['patron'], write: [] },
 
   // Vues (lecture seule).
   v_low_stock: { read: 'any', write: [] },
@@ -174,16 +217,23 @@ const TABLE_RULES: Record<string, TableRule> = {
   v_top_products: { read: PILOTES, write: [] },
 };
 
-export function canReadTable(role: Role, table: string): boolean {
-  const r = TABLE_RULES[table];
-  if (!r) return false;
-  return r.read === 'any' || r.read.includes(role);
+export function canReadTable(roles: Roles, table: string): boolean {
+  const regle = TABLE_RULES[table];
+  if (!regle) return false;
+  // « any » veut dire « n'importe lequel des quatre rôles », pas « même
+  // quelqu'un qui n'en a aucun ». Sans ce garde-fou, un compte sans rôle —
+  // interdit en base, mais possible sur une ligne antérieure à la migration
+  // 009 — lirait le catalogue, les clients et les mouvements de stock.
+  if (roles.length === 0) return false;
+  if (regle.read === 'any') return true;
+  const permis = regle.read;
+  return roles.some((r) => permis.includes(r));
 }
 
-export function canWriteTable(role: Role, table: string): boolean {
-  const r = TABLE_RULES[table];
-  if (!r) return false;
-  return r.write.includes(role);
+export function canWriteTable(roles: Roles, table: string): boolean {
+  const regle = TABLE_RULES[table];
+  if (!regle) return false;
+  return roles.some((r) => regle.write.includes(r));
 }
 
 // ---- Fonctions RPC autorisées (barrière de /api/admin/rpc) ----------------
@@ -205,8 +255,10 @@ export const RPC_RULES: Record<string, Role[]> = {
   validate_stock_count: DEPOT,
 };
 
-export function canCallRpc(role: Role, fn: string): boolean {
-  return RPC_RULES[fn]?.includes(role) ?? false;
+export function canCallRpc(roles: Roles, fn: string): boolean {
+  const permis = RPC_RULES[fn];
+  if (!permis) return false;
+  return roles.some((r) => permis.includes(r));
 }
 
 // ---- Upload : dossier du bucket → module → droit d'écriture ---------------

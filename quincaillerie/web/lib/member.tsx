@@ -3,6 +3,7 @@ import { createContext, useContext } from 'react';
 import {
   canSeeCosts,
   canWriteModule,
+  roleLabels,
   type ModuleKey,
   type Role,
 } from '@/lib/permissions';
@@ -14,7 +15,7 @@ import {
  *
  * Sert uniquement à adapter l'affichage : la vraie barrière reste côté serveur.
  */
-export type MemberCtx = { id: string; name: string; role: Role };
+export type MemberCtx = { id: string; name: string; roles: Role[] };
 
 const Ctx = createContext<MemberCtx | null>(null);
 
@@ -34,12 +35,17 @@ export function useMember(): MemberCtx {
   return m;
 }
 
-/** Raccourci : « ce rôle peut-il écrire dans ce module ? » */
+/** Raccourci : « cette personne peut-elle écrire dans ce module ? » */
 export function useCanWrite(module: ModuleKey): boolean {
-  return canWriteModule(useMember().role, module);
+  return canWriteModule(useMember().roles, module);
 }
 
-/** Raccourci : « ce rôle voit-il les prix d'achat et les marges ? » */
+/** Raccourci : « cette personne voit-elle les prix d'achat et les marges ? » */
 export function useCanSeeCosts(): boolean {
-  return canSeeCosts(useMember().role);
+  return canSeeCosts(useMember().roles);
+}
+
+/** « Vendeur · Magasinier » — pour l'affichage. */
+export function useRoleLabel(): string {
+  return roleLabels(useMember().roles);
 }

@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   const folder = FOLDERS.has(folderRaw) ? folderRaw : 'products';
 
   const mod = FOLDER_MODULE[folder];
-  if (!mod || !canWriteModule(member.role, mod)) {
+  if (!mod || !canWriteModule(member.roles, mod)) {
     return NextResponse.json({ error: 'Droits insuffisants.' }, { status: 403 });
   }
 
@@ -101,7 +101,7 @@ export async function DELETE(req: NextRequest) {
   // Le dossier détermine le module, donc le droit d'écriture.
   const dossier = chemin.split('/')[0];
   const mod = FOLDER_MODULE[dossier];
-  if (!mod || !canWriteModule(member.role, mod)) {
+  if (!mod || !canWriteModule(member.roles, mod)) {
     return NextResponse.json({ error: 'Droits insuffisants.' }, { status: 403 });
   }
 

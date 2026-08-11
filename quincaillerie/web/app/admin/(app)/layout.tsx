@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { resolveMember } from '@/lib/auth-server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { AdminShell } from '@/components/admin/AdminShell';
+import { ServiceWorker } from '@/components/admin/ServiceWorker';
 
 // Le rôle est résolu côté serveur à chaque rendu : un membre désactivé perd
 // l'accès au rechargement suivant, sans attendre l'expiration de son cookie.
@@ -20,7 +21,7 @@ export default async function AdminLayout({
   );
   if (!member) redirect('/admin/login');
 
-  let shopName = 'NADAL SERVICES';
+  let shopName = 'NADAL MULTISERVICES';
   try {
     const { data } = await supabaseAdmin()
       .from('shop_settings')
@@ -36,10 +37,11 @@ export default async function AdminLayout({
   return (
     <AdminShell
       memberId={member.id}
-      role={member.role}
+      roles={member.roles}
       memberName={member.name}
       shopName={shopName}
     >
+      <ServiceWorker />
       {children}
     </AdminShell>
   );

@@ -20,7 +20,13 @@ const STATUT_LABEL: Record<TeamMember['status'], string> = {
   disabled: 'Désactivé',
 };
 
-const VIDE = { name: '', email: '', phone: '', password: '', role: 'vendeur' as Role };
+const VIDE = {
+  name: '',
+  email: '',
+  phone: '',
+  password: '',
+  roles: ['vendeur'] as Role[],
+};
 
 export default function ComptesPage() {
   const me = useMember();
@@ -39,7 +45,7 @@ export default function ComptesPage() {
     // réponse envoyée au navigateur, même pour le patron.
     const { data, error } = await db
       .from('team_members')
-      .select('id, name, email, role, status, phone, created_at')
+      .select('id, name, email, role, roles, status, phone, created_at')
       .order('created_at', { ascending: false });
     setErreur(error?.message ?? null);
     setMembres((data ?? []) as TeamMember[]);
@@ -56,7 +62,7 @@ export default function ComptesPage() {
   }, [load]);
 
   const patronsActifs = useMemo(
-    () => membres.filter((m) => m.role === 'patron' && m.status === 'active'),
+    () => membres.filter((m) => m.roles.includes('patron') && m.status === 'active'),
     [membres],
   );
 
@@ -70,7 +76,7 @@ export default function ComptesPage() {
    */
   function dernierPatron(m: TeamMember): boolean {
     return (
-      m.role === 'patron' &&
+      m.roles.includes('patron') &&
       m.status === 'active' &&
       patronsActifs.length <= 1
     );
@@ -78,7 +84,7 @@ export default function ComptesPage() {
 
   async function majMembre(m: TeamMember, patch: Partial<TeamMember>) {
     const perdPatron =
-      (patch.role !== undefined && patch.role !== 'patron') ||
+      (patch.roles !== undefined && !patch.roles.includes('patron')) ||
       (patch.status !== undefined && patch.status !== 'active');
 
     if (dernierPatron(m) && perdPatron) {
@@ -108,7 +114,7 @@ export default function ComptesPage() {
         name: form.name.trim(),
         email: form.email.trim().toLowerCase(),
         phone: form.phone.trim() || null,
-        role: form.role,
+        roles: form.roles,
         status: 'active',
         password_hash: 'demo',
       });
@@ -228,23 +234,42 @@ export default function ComptesPage() {
                       </div>
                     </td>
                     <td>
-                      <select
-                        className="select w-auto py-1.5 text-[13px]"
-                        value={m.role}
-                        disabled={busy === m.id || verrouille}
+                      <div
+                        className="flex flex-wrap gap-x-3 gap-y-1.5"
                         title={
                           verrouille
                             ? 'Seul patron actif : nomme un autre patron d’abord.'
                             : undefined
                         }
-                        onChange={(e) => majMembre(m, { role: e.target.value as Role })}
                       >
-                        {ROLES.map((r) => (
-                          <option key={r} value={r}>
-                            {ROLE_LABELS[r]}
-                          </option>
-                        ))}
-                      </select>
+                        {ROLES.map((r) => {
+                          const coche = m.roles.includes(r);
+                          // Décocher le dernier rôle laisserait un compte actif
+                          // incapable d'ouvrir quoi que ce soit.
+                          const dernier = coche && m.roles.length === 1;
+                          return (
+                            <label
+                              key={r}
+                              className="flex items-center gap-1.5 text-[13px]"
+                              style={{ opacity: busy === m.id ? 0.5 : 1 }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={coche}
+                                disabled={busy === m.id || verrouille || dernier}
+                                onChange={(e) =>
+                                  majMembre(m, {
+                                    roles: e.target.checked
+                                      ? [...m.roles, r]
+                                      : m.roles.filter((x) => x !== r),
+                                  })
+                                }
+                              />
+                              {ROLE_LABELS[r]}
+                            </label>
+                          );
+                        })}
+                      </div>
                     </td>
                     <td>
                       <span className={STATUT_CLASSE[m.status]}>
@@ -310,7 +335,7 @@ export default function ComptesPage() {
                   style={{ color: 'rgb(var(--accent))' }}
                 />
                 <span className="font-semibold">{ROLE_LABELS[r]}</span>
-                {me.role === r && <span className="badge badge-accent">toi</span>}
+                {me.roles.includes(r) && <span className="badge badge-accent">toi</span>}
               </div>
               <p className="mt-1.5 text-[13px]" style={{ color: 'rgb(var(--muted))' }}>
                 {ROLE_HINTS[r]}
@@ -373,21 +398,47 @@ export default function ComptesPage() {
               </div>
 
               <div>
-                <label className="label">Rôle</label>
-                <select
-                  className="select"
-                  value={form.role}
-                  onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as Role }))}
-                >
-                  {ROLES.map((r) => (
-                    <option key={r} value={r}>
-                      {ROLE_LABELS[r]}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-[12px]" style={{ color: 'rgb(var(--muted))' }}>
-                  {ROLE_HINTS[form.role]}
+                <label className="label">Rôles</label>
+                <p className="mb-2 text-[12px]" style={{ color: 'rgb(var(--muted))' }}>
+                  Plusieurs rôles sont possibles : les droits s’additionnent.
+                  Au comptoir, vendeur + magasinier tient la caisse et reçoit
+                  les livraisons.
                 </p>
+                <div className="space-y-2">
+                  {ROLES.map((r) => (
+                    <label key={r} className="flex items-start gap-2.5">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={form.roles.includes(r)}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            roles: e.target.checked
+                              ? [...f.roles, r]
+                              : f.roles.filter((x) => x !== r),
+                          }))
+                        }
+                      />
+                      <span>
+                        <span className="block text-sm font-medium">
+                          {ROLE_LABELS[r]}
+                        </span>
+                        <span
+                          className="block text-[12px]"
+                          style={{ color: 'rgb(var(--muted))' }}
+                        >
+                          {ROLE_HINTS[r]}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {form.roles.length === 0 && (
+                  <p className="mt-2 text-[12px]" style={{ color: 'rgb(var(--danger))' }}>
+                    Choisis au moins un rôle.
+                  </p>
+                )}
               </div>
 
               <div>

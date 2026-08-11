@@ -4,7 +4,7 @@ import { Save, Check, ShieldCheck, KeyRound } from 'lucide-react';
 import { useMember } from '@/lib/member';
 import { PageHeader } from '@/components/admin/PageHeader';
 import { dateShort } from '@/lib/format';
-import { ROLE_HINTS, ROLE_LABELS } from '@/lib/permissions';
+import { ROLE_HINTS, ROLE_LABELS, roleLabels } from '@/lib/permissions';
 
 type Profil = {
   id: string;
@@ -12,6 +12,7 @@ type Profil = {
   email: string;
   phone: string | null;
   role: string;
+  roles: string[];
   status: string;
   created_at?: string;
 };
@@ -68,6 +69,16 @@ export default function ProfilPage() {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.ok) {
+        if (json?.reason === 'throttled') {
+          const s = Number(json?.secondes) || 60;
+          const minutes = Math.ceil(s / 60);
+          setErreur(
+            `Trop d’essais sur le mot de passe actuel. Réessaie dans ${
+              minutes > 1 ? `${minutes} minutes` : `${s} secondes`
+            }.`,
+          );
+          return false;
+        }
         setErreur(json?.reason ?? 'Modification impossible.');
         return false;
       }
@@ -114,7 +125,7 @@ export default function ProfilPage() {
 
   return (
     <>
-      <PageHeader title="Mon profil" subtitle={ROLE_LABELS[me.role]} />
+      <PageHeader title="Mon profil" subtitle={roleLabels(me.roles)} />
 
       {erreur && (
         <div
@@ -270,16 +281,24 @@ export default function ProfilPage() {
                 strokeWidth={1.75}
                 style={{ color: 'rgb(var(--accent))' }}
               />
-              <span className="font-semibold">{ROLE_LABELS[me.role]}</span>
+              <span className="font-semibold">{roleLabels(me.roles)}</span>
               {profil?.created_at && (
                 <span className="text-[12px]" style={{ color: 'rgb(var(--muted))' }}>
                   · membre depuis le {dateShort(profil.created_at)}
                 </span>
               )}
             </div>
+            <ul className="mt-1.5 space-y-1">
+              {me.roles.map((r) => (
+                <li key={r} className="text-[13px]" style={{ color: 'rgb(var(--muted))' }}>
+                  <strong>{ROLE_LABELS[r]}</strong> — {ROLE_HINTS[r]}
+                </li>
+              ))}
+            </ul>
             <p className="mt-1.5 text-[13px]" style={{ color: 'rgb(var(--muted))' }}>
-              {ROLE_HINTS[me.role]} Ton rôle est attribué par le patron : tu ne
-              peux pas le modifier toi-même.
+              {me.roles.length > 1
+                ? 'Tes droits sont l’union de ces rôles. Ils sont attribués par le patron : tu ne peux pas les modifier toi-même.'
+                : 'Ton rôle est attribué par le patron : tu ne peux pas le modifier toi-même.'}
             </p>
           </div>
         </div>

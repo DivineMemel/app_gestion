@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   if (!body || typeof body.fn !== 'string') return fail('Requête invalide.', 400);
 
   const fn = body.fn;
-  if (!canCallRpc(member.role, fn)) {
+  if (!canCallRpc(member.roles, fn)) {
     return fail('Ton rôle ne permet pas cette opération.', 403);
   }
 

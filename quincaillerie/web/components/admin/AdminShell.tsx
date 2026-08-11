@@ -19,13 +19,14 @@ import {
   TrendingUp,
   Settings,
   UserCog,
+  ScrollText,
   ExternalLink,
   LogOut,
 } from 'lucide-react';
 import { Wordmark } from '@/components/Wordmark';
 import { DemoBanner } from '@/components/admin/DemoBanner';
 import { MemberProvider } from '@/lib/member';
-import { canView, moduleForPath, ROLE_LABELS, type Role } from '@/lib/permissions';
+import { canView, moduleForPath, roleLabels, type Role } from '@/lib/permissions';
 
 type LucideIcon = typeof Receipt;
 type NavItem = { href: string; label: string; icon: LucideIcon; exact?: boolean };
@@ -68,6 +69,7 @@ const SECTIONS: { title: string; items: NavItem[] }[] = [
     title: 'Administration',
     items: [
       { href: '/admin/comptes', label: 'Comptes & rôles', icon: UserCog },
+      { href: '/admin/journal', label: 'Journal', icon: ScrollText },
       { href: '/admin/parametres', label: 'Paramètres', icon: Settings },
     ],
   },
@@ -85,13 +87,13 @@ const MOBILE: NavItem[] = [
 export function AdminShell({
   children,
   memberId,
-  role,
+  roles,
   memberName,
   shopName,
 }: {
   children: React.ReactNode;
   memberId: string;
-  role: Role;
+  roles: Role[];
   memberName: string;
   shopName: string;
 }) {
@@ -103,15 +105,15 @@ export function AdminShell({
 
   const seesHref = (href: string) => {
     const m = moduleForPath(href);
-    return m ? canView(role, m) : true;
+    return m ? canView(roles, m) : true;
   };
 
   // Garde de route côté client : confort de navigation, pas sécurité — les
   // routes serveur revérifient le rôle à chaque requête.
   useEffect(() => {
     const m = moduleForPath(pathname);
-    if (m && !canView(role, m)) router.replace('/admin');
-  }, [pathname, role, router]);
+    if (m && !canView(roles, m)) router.replace('/admin');
+  }, [pathname, roles, router]);
 
   const sections = SECTIONS.map((s) => ({
     ...s,
@@ -122,6 +124,23 @@ export function AdminShell({
 
   async function logout() {
     await fetch('/api/admin/logout', { method: 'POST' });
+
+    // On efface ce qui est personnel — la liste des clients, et la coquille
+    // rendue au nom de l'utilisateur — mais PAS le catalogue ni les photos.
+    // Les mêmes articles aux mêmes prix sont publics sur la vitrine : les
+    // effacer ne protège rien et rendrait la caisse inutilisable le lendemain
+    // matin si le réseau est tombé pendant la nuit.
+    //
+    // La file des ventes n'est jamais touchée : elle contient de l'argent
+    // encaissé qui n'est pas encore parti au serveur.
+    try {
+      navigator.serviceWorker?.controller?.postMessage('purge-session');
+      const { purgerDonneesPersonnelles } = await import('@/lib/offline-store');
+      await purgerDonneesPersonnelles();
+    } catch {
+      /* rien de vital : la déconnexion prime */
+    }
+
     router.replace('/admin/login');
     router.refresh();
   }
@@ -189,7 +208,7 @@ export function AdminShell({
               className="text-[10px] font-bold uppercase tracking-wide2"
               style={{ color: 'rgb(var(--accent))' }}
             >
-              {ROLE_LABELS[role]} · mon profil
+              {roleLabels(roles)} · mon profil
             </div>
           </Link>
 
@@ -224,13 +243,13 @@ export function AdminShell({
               className="text-[10px] font-bold uppercase tracking-wide2"
               style={{ color: 'rgb(var(--accent))' }}
             >
-              {ROLE_LABELS[role]}
+              {roleLabels(roles)}
             </Link>
           </div>
         </header>
 
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 pb-24 md:px-8 md:pb-10">
-          <MemberProvider value={{ id: memberId, name: memberName, role }}>
+          <MemberProvider value={{ id: memberId, name: memberName, roles }}>
             <DemoBanner />
             {children}
           </MemberProvider>

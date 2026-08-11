@@ -3,7 +3,8 @@ import type { Role } from '@/lib/permissions';
 // Types métier. Les montants sont des entiers en francs CFA, les quantités des
 // nombres (on vend du sable au m³ comme des vis à l'unité).
 
-export type Member = { id: string; name: string; role: Role };
+/** Le membre connecté. `roles` fait foi ; les droits en sont l'union. */
+export type Member = { id: string; name: string; roles: Role[] };
 
 export type Category = {
   id: string;
@@ -319,6 +320,7 @@ export type ShopSettings = {
   logo_url: string | null;
   invoice_footer: string | null;
   allow_negative_stock: boolean;
+  enforce_credit_limit: boolean;
   default_min_stock: number;
   online_orders_open: boolean;
 };
@@ -327,10 +329,31 @@ export type TeamMember = {
   id: string;
   name: string;
   email: string;
+  /** Dérivé de `roles` par la base : rôle le plus élevé, pour l'affichage court. */
   role: Role;
+  roles: Role[];
   status: 'pending' | 'active' | 'disabled';
   phone: string | null;
   created_at: string;
+};
+
+/**
+ * Une ligne du journal d'audit. L'auteur est figé en texte au moment des faits :
+ * supprimer un compte ne doit pas effacer ce qu'il a fait, ni le rendre anonyme.
+ */
+export type AuditEntry = {
+  id: number;
+  member_id: string | null;
+  member_name: string | null;
+  member_role: Role | null;
+  action: 'insert' | 'update' | 'upsert' | 'delete';
+  table_name: string;
+  filters: unknown;
+  changes: unknown;
+  row_ids: string[] | null;
+  ok: boolean;
+  error: string | null;
+  at: string;
 };
 
 /** Ligne du panier de caisse, avant encaissement. */
