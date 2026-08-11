@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isSupabaseConfigured, supabaseAdmin } from '@/lib/supabase-server';
 import { hashPassword } from '@/lib/auth-server';
 import { ROLES, type Role } from '@/lib/permissions';
+import { logAudit } from '@/lib/audit';
 
 // Inscription : crée un compte en `pending`. Aucun accès tant que le patron ne
 // l'a pas validé depuis la page Comptes — un employé ne s'auto-autorise pas.
@@ -38,18 +39,31 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  // Un compte ne peut pas naître patron : ce rôle se donne depuis la page Comptes.
+  // Un compte ne peut pas naître patron : ce rôle se donne depuis la page
+  // Comptes. À l'inscription on ne demande QU'UN rôle — c'est une demande
+  // d'accès, pas une attribution ; le patron ajustera l'ensemble ensuite.
   if (!ROLES.includes(role) || role === 'patron') {
     return NextResponse.json({ ok: false, reason: 'Rôle invalide.' }, { status: 400 });
   }
 
-  const { error } = await supabaseAdmin().from('team_members').insert({
+  const admin = supabaseAdmin();
+  const { error } = await admin.from('team_members').insert({
     name,
     email,
     phone: body?.phone?.trim() || null,
     password_hash: hashPassword(password),
-    role,
+    roles: [role],
     status: 'pending',
+  });
+
+  // Tracé sans auteur : c'est justement ce qui permet de repérer une vague de
+  // faux comptes en attente de validation.
+  void logAudit(admin, null, {
+    action: 'insert',
+    table: 'team_members',
+    values: { name, email, roles: [role], status: 'pending' },
+    ok: !error,
+    error: error ? error.message : null,
   });
 
   if (error) {

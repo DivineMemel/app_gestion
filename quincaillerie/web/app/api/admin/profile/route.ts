@@ -6,6 +6,8 @@ import {
   verifyPassword,
   MASTER_ID,
 } from '@/lib/auth-server';
+import { verifierBlocage, enregistrerEchec, effacerEchecs } from '@/lib/throttle';
+import { logAudit } from '@/lib/audit';
 
 // Profil personnel : chacun modifie le sien, personne d'autre.
 //
@@ -41,7 +43,7 @@ export async function GET(req: NextRequest) {
 
   const { data } = await supabaseAdmin()
     .from('team_members')
-    .select('id, name, email, phone, role, status, created_at')
+    .select('id, name, email, phone, role, roles, status, created_at')
     .eq('id', membre.id)
     .maybeSingle();
 
@@ -92,6 +94,18 @@ export async function PATCH(req: NextRequest) {
       return refus('Saisis ton mot de passe actuel pour le changer.', 400);
     }
 
+    // Même frein qu'à la connexion. Une session laissée ouverte au comptoir
+    // permettait sinon d'essayer le mot de passe actuel en boucle, et donc de
+    // verrouiller le compte de son titulaire en le changeant.
+    const cle = `profil:${membre.id}`;
+    const verdict = await verifierBlocage(null, cle);
+    if (verdict.bloque) {
+      return NextResponse.json(
+        { ok: false, reason: 'throttled', secondes: verdict.secondes },
+        { status: 429 },
+      );
+    }
+
     const { data: courant } = await supabaseAdmin()
       .from('team_members')
       .select('password_hash')
@@ -99,10 +113,10 @@ export async function PATCH(req: NextRequest) {
       .maybeSingle();
 
     if (!courant || !verifyPassword(body.current_password, courant.password_hash)) {
-      // Léger délai : même traitement qu'un échec de connexion.
-      await new Promise((r) => setTimeout(r, 500));
+      await enregistrerEchec(null, cle);
       return refus('Mot de passe actuel incorrect.', 403);
     }
+    await effacerEchecs(null, cle);
     patch.password_hash = hashPassword(body.password);
   }
 
@@ -115,8 +129,24 @@ export async function PATCH(req: NextRequest) {
     .from('team_members')
     .update(patch)
     .eq('id', membre.id)
-    .select('id, name, email, phone, role, status')
+    .select('id, name, email, phone, role, roles, status')
     .single();
+
+  // On journalise le GESTE, pas le secret : `changes` ne dit jamais quel mot de
+  // passe a été choisi, seulement qu'il l'a été.
+  void logAudit(supabaseAdmin(), membre, {
+    action: 'update',
+    table: 'team_members',
+    filters: [{ op: 'eq', column: 'id', value: membre.id }],
+    values: {
+      ...(patch.name !== undefined ? { name: patch.name } : {}),
+      ...(patch.phone !== undefined ? { phone: patch.phone } : {}),
+      ...(patch.password_hash !== undefined ? { password_hash: 'modifié' } : {}),
+    },
+    data,
+    ok: !error,
+    error: error ? error.message : null,
+  });
 
   if (error) return refus(error.message, 500);
   return NextResponse.json({ ok: true, profile: data });

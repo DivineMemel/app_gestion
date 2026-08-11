@@ -37,6 +37,16 @@ function LoginForm() {
         router.refresh();
         return;
       }
+      if (json?.reason === 'throttled') {
+        const s = Number(json?.secondes) || 60;
+        const minutes = Math.ceil(s / 60);
+        setError(
+          `Trop de tentatives. Réessaie dans ${
+            minutes > 1 ? `${minutes} minutes` : `${s} secondes`
+          }.`,
+        );
+        return;
+      }
       setError(REASONS[json?.reason] ?? json?.reason ?? 'Connexion impossible.');
     } catch {
       setError('Connexion perdue. Vérifie le réseau.');

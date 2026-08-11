@@ -6,6 +6,32 @@
 
 const enc = new TextEncoder();
 
+/**
+ * Identifiant du patron « maître » : ce n'est pas un uuid, donc jamais une FK.
+ * Défini ici plutôt que dans auth-server.ts pour rester importable depuis le
+ * middleware, qui tourne en runtime edge et ne peut pas charger node:crypto.
+ */
+export const MASTER_ID = 'owner-master';
+
+/**
+ * Secret de signature des sessions.
+ *
+ * Il était confondu avec `ADMIN_TOKEN`, qui servait aussi de VALEUR au cookie
+ * `qc_admin` du patron. Autrement dit le secret de signature se promenait dans
+ * un cookie : le lire une fois (poste partagé au comptoir, XSS, capture) ne
+ * donnait pas seulement un accès patron, mais la clé permettant de forger une
+ * session pour n'importe quel membre, indéfiniment, sans jamais toucher la
+ * base. Les deux rôles sont désormais séparés.
+ *
+ * `ADMIN_TOKEN` reste accepté en repli pour ne pas casser les déploiements
+ * existants : le cookie ne contient plus le secret, il n'y a donc plus de
+ * fuite même en repli. Renseigner `SESSION_SECRET` reste préférable — c'est ce
+ * qui permet de faire tourner l'un sans invalider l'autre.
+ */
+export function sessionSecret(): string | null {
+  return process.env.SESSION_SECRET || process.env.ADMIN_TOKEN || null;
+}
+
 async function hmacHex(data: string, secret: string): Promise<string> {
   const key = await crypto.subtle.importKey(
     'raw',

@@ -2,79 +2,41 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { resolveMember } from '@/lib/auth-server';
 import { canReadTable, canWriteTable, canSeeCosts } from '@/lib/permissions';
+import { TABLE_COLUMNS, WRITABLE_TABLES, buildSelect, validateWrite } from '@/lib/db-schema';
+import { logAudit } from '@/lib/audit';
 
 // Modèle de sécurité : la RLS est verrouillée partout et la clé publique n'a
 // aucun accès. Tout le CRUD admin transite par ici, en service_role, derrière
 // un cookie httpOnly — et chaque requête est revalidée par rôle.
+//
+// Trois barrières, dans cet ordre :
+//   1. la table est-elle exposée, et ce rôle y a-t-il droit ?
+//   2. les COLONNES demandées sont-elles déclarées dans lib/db-schema.ts ?
+//      La chaîne `select` est réécrite à partir de cette liste, jamais
+//      transmise telle quelle : PostgREST y résout les jointures par clé
+//      étrangère, et une jointure non contrôlée fait sortir n'importe quelle
+//      colonne de n'importe quelle table voisine.
+//   3. toute mutation est journalisée dans audit_log.
 
-const TABLES = [
-  'categories',
-  'products',
-  'product_units',
-  'customers',
-  'suppliers',
-  'purchase_orders',
-  'purchase_order_items',
-  'sales',
-  'sale_items',
-  'payments',
-  'quotes',
-  'quote_items',
-  'orders',
-  'order_items',
-  'stock_movements',
-  'supply_entries',
-  'supply_entry_items',
-  'stock_counts',
-  'stock_count_items',
-  'expenses',
-  'expense_categories',
-  'shop_settings',
-  'team_members',
-  'push_subscriptions',
-] as const;
-
-const VIEWS = [
-  'v_appro_a_valoriser',
-  'v_low_stock',
-  'v_customer_balances',
-  'v_monthly_pnl',
-  'v_top_products',
-] as const;
-
-const WRITABLE = new Set<string>(TABLES);
-const READABLE = new Set<string>([...TABLES, ...VIEWS]);
+const READABLE = new Set<string>(Object.keys(TABLE_COLUMNS));
+const WRITABLE = new Set<string>(WRITABLE_TABLES);
 const OPS = new Set(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'ilike', 'is']);
 const ACTIONS = new Set(['select', 'insert', 'update', 'delete', 'upsert']);
 
 /**
- * Colonnes de coût, retirées des réponses pour les rôles qui n'y ont pas
- * droit. Masquer la colonne dans l'UI ne suffirait pas : elle transiterait
- * quand même dans la réponse réseau, lisible en deux clics.
+ * Plafond de lignes, pour qu'une requête sans `limit` ne puisse pas ramener
+ * une table entière. Volontairement haut : au-delà, ce n'est plus un garde-fou
+ * mais une troncature silencieuse, et un catalogue amputé au comptoir est un
+ * bien pire défaut qu'une réponse volumineuse. Toute troncature effective est
+ * signalée dans les logs serveur — un plafond muet finit toujours par se faire
+ * passer pour « il n'y a que ça ».
  */
-const COST_COLUMNS: Record<string, string[]> = {
-  products: ['cost_price_xof'],
-  sale_items: ['cost_price_xof'],
-  purchase_order_items: ['unit_cost_xof'],
-  supply_entry_items: ['unit_cost_xof'],
-};
+const LIMITE_MAX = 10_000;
 
 type Body = Record<string, unknown>;
 
 function fail(message: string, status: number) {
   return NextResponse.json({ data: null, error: { message } }, { status });
-}
-
-function stripCosts(table: string, data: unknown): unknown {
-  const cols = COST_COLUMNS[table];
-  if (!cols || data == null) return data;
-  const clean = (row: unknown) => {
-    if (!row || typeof row !== 'object') return row;
-    const copy = { ...(row as Record<string, unknown>) };
-    for (const c of cols) delete copy[c];
-    return copy;
-  };
-  return Array.isArray(data) ? data.map(clean) : clean(data);
 }
 
 export async function POST(req: NextRequest) {
@@ -103,8 +65,8 @@ export async function POST(req: NextRequest) {
   if (!isWrite && !READABLE.has(table)) return fail(`Table non lisible : ${table}`, 403);
 
   const allowed = isWrite
-    ? canWriteTable(member.role, table)
-    : canReadTable(member.role, table);
+    ? canWriteTable(member.roles, table)
+    : canReadTable(member.roles, table);
   if (!allowed) return fail('Ton rôle ne permet pas cette opération.', 403);
 
   const filters = Array.isArray(body.filters) ? body.filters : [];
@@ -114,23 +76,23 @@ export async function POST(req: NextRequest) {
     return fail('Modification sans filtre refusée.', 400);
   }
 
-  // Écrire un coût sans avoir le droit de le lire n'a aucun sens : on refuse.
-  if (isWrite && !canSeeCosts(member.role) && COST_COLUMNS[table]) {
-    const rows = Array.isArray(body.values) ? body.values : [body.values];
-    for (const row of rows) {
-      if (row && typeof row === 'object') {
-        for (const c of COST_COLUMNS[table]) {
-          if (c in (row as Record<string, unknown>)) {
-            return fail('Ton rôle ne permet pas de modifier les prix d’achat.', 403);
-          }
-        }
-      }
-    }
+  // Colonnes écrites : seulement celles déclarées, et aucune réservée à un
+  // rôle supérieur (le plafond d'ardoise, les prix d'achat).
+  if (action !== 'delete' && isWrite) {
+    const verdict = validateWrite(table, body.values, member.roles);
+    if (!verdict.ok) return fail(verdict.message, 403);
   }
 
-  const select =
-    typeof body.select === 'string' && body.select.length > 0 ? body.select : '*';
+  const voitLesCouts = canSeeCosts(member.roles);
+  const selectDemande =
+    typeof body.select === 'string' && body.select.trim().length > 0 ? body.select : '*';
   const returning = body.returning === true;
+
+  // La sélection est réécrite en liste explicite : `*` est développé à partir
+  // des colonnes déclarées, les coûts sont retirés pour qui n'y a pas droit, et
+  // les jointures sont vérifiées une par une.
+  const select = buildSelect(table, selectDemande, member.roles, voitLesCouts, canReadTable);
+  if (!select.ok) return fail(select.message, 400);
 
   const admin = supabaseAdmin();
   type Row = Record<string, unknown>;
@@ -139,23 +101,29 @@ export async function POST(req: NextRequest) {
   let q: any;
 
   if (action === 'select') {
-    q = admin.from(table).select(select);
+    q = admin.from(table).select(select.select);
   } else if (action === 'insert') {
     q = admin.from(table).insert(values);
-    if (returning) q = q.select(select);
+    if (returning) q = q.select(select.select);
   } else if (action === 'upsert') {
     q = admin.from(table).upsert(values);
-    if (returning) q = q.select(select);
+    if (returning) q = q.select(select.select);
   } else if (action === 'update') {
     q = admin.from(table).update(values);
-    if (returning) q = q.select(select);
+    if (returning) q = q.select(select.select);
   } else {
     q = admin.from(table).delete();
   }
 
+  const colonnesFiltrables = TABLE_COLUMNS[table] ?? [];
   for (const f of filters as Array<Record<string, unknown>>) {
     if (!f || typeof f.column !== 'string' || typeof f.op !== 'string') continue;
     if (!OPS.has(f.op)) continue;
+    // Filtrer sur une colonne non déclarée permettrait de deviner son contenu
+    // par recoupement (« existe-t-il une ligne où password_hash commence par… »).
+    if (!colonnesFiltrables.includes(f.column)) {
+      return fail(`Filtre sur colonne inconnue : ${table}.${f.column}`, 400);
+    }
     if (f.op === 'in') {
       if (!Array.isArray(f.value)) continue;
       q = q.in(f.column, f.value);
@@ -167,20 +135,40 @@ export async function POST(req: NextRequest) {
   const order = Array.isArray(body.order) ? body.order : [];
   for (const o of order as Array<Record<string, unknown>>) {
     if (!o || typeof o.column !== 'string') continue;
+    if (!colonnesFiltrables.includes(o.column)) continue;
     q = q.order(o.column, {
       ascending: o.ascending !== false,
       nullsFirst: typeof o.nullsFirst === 'boolean' ? o.nullsFirst : undefined,
     });
   }
 
-  if (typeof body.limit === 'number') q = q.limit(body.limit);
+  const limite = typeof body.limit === 'number' ? Math.min(body.limit, LIMITE_MAX) : LIMITE_MAX;
+  if (body.single !== true && body.maybeSingle !== true) q = q.limit(limite);
   if (body.single === true) q = q.single();
   else if (body.maybeSingle === true) q = q.maybeSingle();
 
   const { data, error } = await q;
 
+  if (!error && Array.isArray(data) && data.length >= LIMITE_MAX) {
+    console.warn(
+      `[db] ${table} : ${data.length} lignes — plafond atteint, la réponse est probablement tronquée. Pagine cette requête.`,
+    );
+  }
+
+  if (isWrite) {
+    void logAudit(admin, member, {
+      action,
+      table,
+      filters: filters.length > 0 ? filters : null,
+      values: action === 'delete' ? null : body.values,
+      data,
+      ok: !error,
+      error: error ? error.message : null,
+    });
+  }
+
   return NextResponse.json({
-    data: canSeeCosts(member.role) ? (data ?? null) : stripCosts(table, data ?? null),
+    data: data ?? null,
     error: error ? { message: error.message } : null,
   });
 }
