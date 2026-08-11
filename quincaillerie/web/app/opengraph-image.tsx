@@ -8,7 +8,7 @@ import { getShop } from '@/lib/storefront';
 // le premier canal ici. Sans elle, le message n'affiche qu'une URL nue.
 
 export const runtime = 'nodejs';
-export const alt = 'NADAL SERVICES — Matériaux, décoration & prestations';
+export const alt = 'NADAL MULTISERVICES — Matériaux, décoration & prestations';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 

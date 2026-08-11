@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 /**
- * Marque NADAL SERVICES.
+ * Marque NADAL MULTISERVICES.
  *
  * Le sigle reprend les trois éléments du logo : l'engrenage orange, les
  * bâtiments bleus, la virgule qui les souligne. Dessiné en SVG plutôt
@@ -50,12 +50,17 @@ export function Wordmark({
 
   // Le nom vient des réglages : s'il correspond encore à la marque, on rend le
   // lettrage bicolore de la charte plutôt qu'un texte plat.
-  const estMarque = !name || name.trim().toUpperCase() === 'NADAL SERVICES';
+  // On accepte aussi l'ancien nom : les bases déjà en service portent encore
+  // « NADAL SERVICES » dans leurs réglages tant que la migration 010 n'est pas
+  // passée, et un lettrage qui bascule en texte plat entre-temps se remarque.
+  const marque = name?.trim().toUpperCase();
+  const estMarque =
+    !marque || marque === 'NADAL MULTISERVICES' || marque === 'NADAL SERVICES';
 
   const lettrage = estMarque ? (
     <>
       <span style={{ color: 'rgb(var(--accent))' }}>NADAL</span>
-      <span style={{ color: 'rgb(var(--orange))' }}> SERVICES</span>
+      <span style={{ color: 'rgb(var(--orange))' }}> MULTISERVICES</span>
     </>
   ) : (
     <span style={{ color: 'rgb(var(--accent))' }}>{name}</span>

@@ -45,7 +45,7 @@ export default function ParametresPage() {
     const { error } = await db
       .from('shop_settings')
       .update({
-        name: (form.name ?? '').trim() || 'NADAL SERVICES',
+        name: (form.name ?? '').trim() || 'NADAL MULTISERVICES',
         tagline: form.tagline?.trim() || null,
         phone: form.phone?.trim() || null,
         whatsapp: form.whatsapp?.trim() || null,
@@ -54,6 +54,7 @@ export default function ParametresPage() {
         logo_url: form.logo_url?.trim() || null,
         invoice_footer: form.invoice_footer?.trim() || null,
         allow_negative_stock: Boolean(form.allow_negative_stock),
+        enforce_credit_limit: Boolean(form.enforce_credit_limit),
         default_min_stock: Number(form.default_min_stock) || 0,
         online_orders_open: Boolean(form.online_orders_open),
         updated_at: new Date().toISOString(),
@@ -209,6 +210,25 @@ export default function ParametresPage() {
                 <span className="block text-[12px]" style={{ color: 'rgb(var(--muted))' }}>
                   Permet de vendre de la marchandise pas encore réceptionnée. La
                   caisse refuse la vente quand c’est décoché.
+                </span>
+              </span>
+            </label>
+
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={form.enforce_credit_limit !== false}
+                onChange={(e) => set('enforce_credit_limit')(e.target.checked)}
+              />
+              <span>
+                <span className="block text-sm font-medium">
+                  Appliquer le plafond d’ardoise
+                </span>
+                <span className="block text-[12px]" style={{ color: 'rgb(var(--muted))' }}>
+                  La caisse refuse une vente à crédit qui ferait dépasser le
+                  plafond du client. Attention : un client dont le plafond vaut 0
+                  ne peut plus prendre à l’ardoise du tout.
                 </span>
               </span>
             </label>

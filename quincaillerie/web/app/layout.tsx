@@ -26,7 +26,7 @@ const mono = JetBrains_Mono({
   weight: ['400', '500'],
 });
 
-const TITRE = 'NADAL SERVICES — Matériaux, décoration & prestations à Abidjan';
+const TITRE = 'NADAL MULTISERVICES — Matériaux, décoration & prestations à Abidjan';
 const DESCRIPTION =
   'Staff et faux plafond, plomberie, décoration intérieure, fosse septique biodigesteur et vente de matériaux décoratifs. Bingerville, Abidjan. Commande en ligne et retrait en boutique.';
 
@@ -34,10 +34,10 @@ export const metadata: Metadata = {
   // Sans metadataBase, Next émet des URL relatives dans les balises Open Graph —
   // que ni Google ni WhatsApp ne savent résoudre.
   metadataBase: new URL(SITE_URL),
-  title: { default: TITRE, template: '%s — NADAL SERVICES' },
+  title: { default: TITRE, template: '%s — NADAL MULTISERVICES' },
   description: DESCRIPTION,
   manifest: '/manifest.json',
-  applicationName: 'NADAL SERVICES',
+  applicationName: 'NADAL MULTISERVICES',
   keywords: [
     'quincaillerie Abidjan',
     'fosse septique biodigesteur',
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'fr_CI',
     url: SITE_URL,
-    siteName: 'NADAL SERVICES',
+    siteName: 'NADAL MULTISERVICES',
     title: TITRE,
     description: DESCRIPTION,
   },

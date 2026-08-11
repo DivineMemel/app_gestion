@@ -10,9 +10,23 @@ import {
   X,
   RefreshCw,
   AlertTriangle,
+  CloudOff,
+  UploadCloud,
 } from 'lucide-react';
-import { db } from '@/lib/admin-db';
+import { db, MODE_DEMO } from '@/lib/admin-db';
 import { useMember } from '@/lib/member';
+import { useReseau } from '@/lib/reseau';
+import {
+  enfiler,
+  ranger,
+  reprendre,
+  nouvelleReference,
+  fileAttente,
+  CLE_CATALOGUE,
+  CLE_CLIENTS,
+  CLE_SHOP,
+} from '@/lib/offline-store';
+import { demarrerSync, type ResultatSync } from '@/lib/offline-sync';
 import { PageHeader } from '@/components/admin/PageHeader';
 import { Ticket, type TicketData, type ShopHeader } from '@/components/admin/Ticket';
 import { qty as fmtQty, xof } from '@/lib/format';
@@ -44,10 +58,18 @@ const MOYENS: PaymentMethod[] = [
 
 export default function CaissePage() {
   const me = useMember();
+  // Le mode démonstration tourne déjà entièrement dans le navigateur : lui
+  // superposer une file hors ligne n'aurait aucun sens.
+  const enLigne = useReseau() || MODE_DEMO;
+  const horsLigne = !enLigne;
+
+  const [enAttente, setEnAttente] = useState(0);
+  const [bloquees, setBloquees] = useState(0);
+  const [depuisCache, setDepuisCache] = useState<string | null>(null);
 
   const [catalogue, setCatalogue] = useState<CatalogItem[]>([]);
   const [clients, setClients] = useState<Customer[]>([]);
-  const [shop, setShop] = useState<ShopHeader>({ name: 'NADAL SERVICES' });
+  const [shop, setShop] = useState<ShopHeader>({ name: 'NADAL MULTISERVICES' });
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
 
@@ -81,6 +103,27 @@ export default function CaissePage() {
    */
   const charger = useCallback(async () => {
     setChargement(true);
+
+    // Sans réseau, on sert la dernière photo du catalogue. Les prix peuvent
+    // avoir bougé depuis — c'est le prix à payer pour continuer à vendre, et
+    // la bannière le dit explicitement au vendeur.
+    if (horsLigne && !MODE_DEMO) {
+      const [pc, cc, sc] = await Promise.all([
+        reprendre<CatalogItem[]>(CLE_CATALOGUE),
+        reprendre<Customer[]>(CLE_CLIENTS),
+        reprendre<ShopHeader>(CLE_SHOP),
+      ]);
+      setCatalogue(pc?.donnees ?? []);
+      setClients(cc?.donnees ?? []);
+      if (sc?.donnees) setShop(sc.donnees);
+      setDepuisCache(pc?.le ?? null);
+      setErreur(
+        pc ? null : 'Aucun catalogue enregistré : ouvre la caisse une fois avec du réseau.',
+      );
+      setChargement(false);
+      return;
+    }
+
     const [prods, cls, params] = await Promise.all([
       db
         .from('products')
@@ -98,14 +141,41 @@ export default function CaissePage() {
     ]);
 
     setErreur(prods.error?.message ?? cls.error?.message ?? null);
-    setCatalogue((prods.data ?? []) as CatalogItem[]);
-    setClients((cls.data ?? []) as Customer[]);
+    const items = (prods.data ?? []) as CatalogItem[];
+    const clientsCharges = (cls.data ?? []) as Customer[];
+    setCatalogue(items);
+    setClients(clientsCharges);
     if (params.data) setShop(params.data as ShopHeader);
+    setDepuisCache(null);
     setChargement(false);
-  }, []);
+
+    // Photo pour la prochaine coupure. Prise à chaque chargement réussi : une
+    // photo vieille d'une semaine ferait vendre à des prix périmés.
+    if (!MODE_DEMO && !prods.error) {
+      void ranger(CLE_CATALOGUE, items);
+      void ranger(CLE_CLIENTS, clientsCharges);
+      if (params.data) void ranger(CLE_SHOP, params.data as ShopHeader);
+    }
+  }, [horsLigne]);
 
   useEffect(() => {
     charger();
+  }, [charger]);
+
+  // Rejeu de la file dès que le réseau revient.
+  useEffect(() => {
+    if (MODE_DEMO) return;
+    const compter = (r: ResultatSync) => {
+      setEnAttente(r.restantes);
+      setBloquees(r.bloquees);
+      // Une vente rejouée a bougé le stock : le catalogue affiché est périmé.
+      if (r.envoyees > 0) void charger();
+    };
+    void fileAttente().then((f) => {
+      setEnAttente(f.length);
+      setBloquees(f.filter((v) => v.bloquee).length);
+    });
+    return demarrerSync(compter);
   }, [charger]);
 
   const resultats = useMemo(() => {
@@ -238,31 +308,94 @@ export default function CaissePage() {
   );
 
   const creditSansClient = reste > 0 && !clientId;
+  // Hors ligne, la caisse ignore l'encours réel du client : elle ne peut donc
+  // pas vérifier son plafond d'ardoise. Refuser à la synchronisation
+  // arriverait trop tard, la marchandise étant partie — on refuse tout de
+  // suite, au comptoir, pendant que le client est encore là.
+  const creditHorsLigne = horsLigne && reste > 0;
   const peutEncaisser =
-    panier.length > 0 && !creditSansClient && !encaissement;
+    panier.length > 0 && !creditSansClient && !creditHorsLigne && !encaissement;
 
   async function encaisser() {
     if (!peutEncaisser) return;
     setEncaissement(true);
     setErreur(null);
 
-    const { data, error } = await db.rpc('create_sale', {
-      p: {
-        customer_id: clientId,
+    const reference = nouvelleReference();
+    const venduLe = new Date().toISOString();
+    const charge = {
+      client_ref: reference,
+      captured_offline: horsLigne,
+      sold_at: venduLe,
+      customer_id: clientId,
+      discount_xof: remise,
+      paid_xof: regleNum,
+      payment_method: moyen,
+      channel: 'comptoir',
+      note: note.trim() || null,
+      items: panier.map((l) => ({
+        product_id: l.product_id,
+        unit_label: l.unit_label,
+        unit_factor: l.unit_factor,
+        qty: l.qty,
+        unit_price_xof: l.unit_price_xof,
+      })),
+    };
+
+    const lignesTicket = panier.map((l) => ({
+      product_name: l.product_name,
+      unit_label: l.unit_label,
+      qty: l.qty,
+      unit_price_xof: l.unit_price_xof,
+      line_total_xof: l.qty * l.unit_price_xof,
+    }));
+
+    // ---- Hors ligne : la vente part dans la file, le ticket s'imprime ----
+    if (horsLigne && !MODE_DEMO) {
+      try {
+        await enfiler({
+          client_ref: reference,
+          sold_at: venduLe,
+          payload: charge,
+          ticket: { lines: lignesTicket, seller: me.name },
+          essais: 0,
+          derniere_erreur: null,
+          bloquee: false,
+          cree_le: venduLe,
+        });
+      } catch {
+        // Si même l'écriture locale échoue, il ne faut SURTOUT pas laisser
+        // croire que la vente est enregistrée.
+        setErreur(
+          'Impossible d’enregistrer la vente sur cet appareil. Note-la sur papier avant de recommencer.',
+        );
+        setEncaissement(false);
+        return;
+      }
+
+      setEnAttente((n) => n + 1);
+      setTicket({
+        // Le numéro définitif viendra du serveur à la synchronisation. En
+        // attendant, le ticket porte une référence courte et clairement
+        // marquée, pour qu'aucun client ne reparte avec un faux « V-2026-… ».
+        number: `HORS LIGNE ${reference.slice(0, 6).toUpperCase()}`,
+        sold_at: venduLe,
+        customer_name: client?.name ?? null,
+        customer_phone: client?.phone ?? null,
+        lines: lignesTicket,
+        subtotal_xof: sousTotal,
         discount_xof: remise,
+        total_xof: total,
         paid_xof: regleNum,
         payment_method: moyen,
-        channel: 'comptoir',
-        note: note.trim() || null,
-        items: panier.map((l) => ({
-          product_id: l.product_id,
-          unit_label: l.unit_label,
-          unit_factor: l.unit_factor,
-          qty: l.qty,
-          unit_price_xof: l.unit_price_xof,
-        })),
-      },
-    });
+        seller: me.name,
+      });
+      vider();
+      setEncaissement(false);
+      return;
+    }
+
+    const { data, error } = await db.rpc('create_sale', { p: charge });
 
     if (error) {
       setErreur(error.message);
@@ -311,6 +444,62 @@ export default function CaissePage() {
           </button>
         }
       />
+
+      {horsLigne && !MODE_DEMO && (
+        <div
+          className="mb-4 flex flex-wrap items-start gap-3 border p-3 text-sm"
+          style={{
+            borderColor: 'rgb(var(--warn) / 0.5)',
+            background: 'rgb(var(--warn) / 0.08)',
+            color: 'rgb(var(--warn))',
+          }}
+        >
+          <CloudOff className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+          <div>
+            <strong>Caisse hors ligne.</strong> Les ventes sont enregistrées sur
+            cet appareil et partiront au retour du réseau.{' '}
+            {depuisCache && (
+              <>
+                Prix et stocks datent du{' '}
+                {new Date(depuisCache).toLocaleString('fr-FR', {
+                  dateStyle: 'short',
+                  timeStyle: 'short',
+                })}
+                .{' '}
+              </>
+            )}
+            Le crédit est indisponible : encaissement comptant uniquement.
+            <br />
+            <span className="text-[12px]">
+              Ne ferme pas cet onglet sur un autre appareil que celui-ci — la
+              file est locale.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {enAttente > 0 && (
+        <div
+          className="mb-4 flex items-start gap-3 border p-3 text-sm"
+          style={{
+            borderColor: 'rgb(var(--accent) / 0.4)',
+            background: 'rgb(var(--accent) / 0.06)',
+          }}
+        >
+          <UploadCloud className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+          <div>
+            {enAttente} vente{enAttente > 1 ? 's' : ''} en attente d’envoi
+            {bloquees > 0 && (
+              <>
+                {' '}— dont <strong>{bloquees} refusée{bloquees > 1 ? 's' : ''}</strong>{' '}
+                par le serveur, à régler avec le patron : elles ne partiront pas
+                toutes seules.
+              </>
+            )}
+            .
+          </div>
+        </div>
+      )}
 
       {erreur && (
         <div
@@ -585,11 +774,20 @@ export default function CaissePage() {
                   irrécouvrable.
                 </p>
               )}
+              {creditHorsLigne && (
+                <p className="text-[13px]" style={{ color: 'rgb(var(--danger))' }}>
+                  Pas d’ardoise hors ligne : l’encours du client ne peut pas
+                  être vérifié sans réseau. Encaisse la totalité, ou attends le
+                  retour de la connexion.
+                </p>
+              )}
               {alertesStock.length > 0 && (
                 <p className="text-[13px]" style={{ color: 'rgb(var(--warn))' }}>
                   Stock insuffisant sur {alertesStock.length} ligne
-                  {alertesStock.length > 1 ? 's' : ''} — la vente sera refusée si
-                  le stock négatif n’est pas autorisé dans les réglages.
+                  {alertesStock.length > 1 ? 's' : ''} —{' '}
+                  {horsLigne
+                    ? 'le stock affiché date de la dernière synchronisation ; la vente passera et l’écart sera signalé.'
+                    : 'la vente sera refusée si le stock négatif n’est pas autorisé dans les réglages.'}
                 </p>
               )}
 

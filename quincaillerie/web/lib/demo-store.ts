@@ -418,6 +418,33 @@ function creerVente(t: Tables, p: Row): { data: unknown; error: { message: strin
     return { data: null, error: { message: 'Vente à crédit impossible sans client identifié.' } };
   }
 
+  // Plafond d'ardoise — même règle qu'en base (migration 007) : on raisonne sur
+  // l'encours TOTAL du client après cette vente, pas sur le reste à payer de la
+  // seule vente en cours.
+  const plafondActif = t.shop_settings[0]?.enforce_credit_limit !== false;
+  if (statut !== 'payee' && plafondActif) {
+    const client = t.customers.find((c) => c.id === p.customer_id);
+    if (!client) return { data: null, error: { message: 'Client introuvable.' } };
+
+    const achete = t.sales
+      .filter((s) => s.customer_id === p.customer_id && s.status !== 'annulee')
+      .reduce((n, s) => n + Number(s.total_xof ?? 0), 0);
+    const regle = t.payments
+      .filter((r) => r.customer_id === p.customer_id)
+      .reduce((n, r) => n + Number(r.amount_xof ?? 0), 0);
+    const encours = achete - regle + (total - paye);
+    const plafond = Number(client.credit_limit_xof ?? 0);
+
+    if (encours > plafond) {
+      return {
+        data: null,
+        error: {
+          message: `Plafond d'ardoise dépassé pour ${client.name} : encours ${encours} F pour un plafond de ${plafond} F. Encaisse davantage ou relève le plafond.`,
+        },
+      };
+    }
+  }
+
   t.sales.push({
     id, number: num, customer_id: p.customer_id ?? null,
     subtotal_xof: sousTotal, discount_xof: remise, total_xof: total, paid_xof: paye,

@@ -33,7 +33,7 @@ export type StoreProduct = {
 export async function getShop(): Promise<ShopSettings> {
   const fallback = {
     id: 1,
-    name: 'NADAL SERVICES',
+    name: 'NADAL MULTISERVICES',
     tagline: 'Staff · Plomberie · Décoration · Fosse septique',
     phone: null,
     whatsapp: null,
@@ -42,6 +42,7 @@ export async function getShop(): Promise<ShopSettings> {
     logo_url: null,
     invoice_footer: null,
     allow_negative_stock: false,
+    enforce_credit_limit: true,
     default_min_stock: 5,
     online_orders_open: true,
   } satisfies ShopSettings;

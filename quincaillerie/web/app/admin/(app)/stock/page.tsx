@@ -45,8 +45,15 @@ export default function StockPage() {
   const [historique, setHistorique] = useState<StockMovement[] | null>(null);
   const [articleHisto, setArticleHisto] = useState<Article | null>(null);
 
+  // Ce que les coupures réseau ont coûté en exactitude. Hors ligne, la caisse
+  // vend sans pouvoir contrôler le stock : l'écart atterrit ici, et c'est au
+  // dépôt de le régulariser.
+  const [negatifs, setNegatifs] = useState<
+    { id: string; name: string; base_unit: string; stock_qty: number }[]
+  >([]);
+
   const load = useCallback(async () => {
-    const [p, s] = await Promise.all([
+    const [p, s, neg] = await Promise.all([
       db
         .from('products')
         .select(
@@ -55,9 +62,13 @@ export default function StockPage() {
         .eq('active', true)
         .order('name'),
       db.from('shop_settings').select('default_min_stock').eq('id', 1).maybeSingle(),
+      db.from('v_stock_negatif').select('id, name, base_unit, stock_qty'),
     ]);
     setErreur(p.error?.message ?? null);
     setArticles((p.data ?? []) as Article[]);
+    setNegatifs(
+      (neg.data ?? []) as { id: string; name: string; base_unit: string; stock_qty: number }[],
+    );
     if (s.data) setSeuilDefaut(Number((s.data as { default_min_stock: number }).default_min_stock));
     setChargement(false);
   }, []);
@@ -170,6 +181,31 @@ export default function StockPage() {
           </button>
         }
       />
+
+      {negatifs.length > 0 && (
+        <div
+          className="mb-4 border p-3 text-sm"
+          style={{
+            borderColor: 'rgb(var(--warn) / 0.5)',
+            background: 'rgb(var(--warn) / 0.08)',
+          }}
+        >
+          <strong style={{ color: 'rgb(var(--warn))' }}>
+            {negatifs.length} article{negatifs.length > 1 ? 's' : ''} en stock négatif.
+          </strong>{' '}
+          Une vente hors ligne a sorti plus de marchandise que le stock n’en
+          comptait. Compte le rayon et saisis un ajustement : tant que le solde
+          est négatif, les alertes de réapprovisionnement sont fausses.
+          <ul className="mt-2 space-y-0.5">
+            {negatifs.slice(0, 6).map((n) => (
+              <li key={n.id} className="tnum">
+                {n.name} — {n.stock_qty} {n.base_unit}
+              </li>
+            ))}
+            {negatifs.length > 6 && <li>… et {negatifs.length - 6} autres.</li>}
+          </ul>
+        </div>
+      )}
 
       {erreur && (
         <div

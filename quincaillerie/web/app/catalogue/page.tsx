@@ -9,7 +9,7 @@ import { qty as fmtQty } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
-// Le titre reprend le rayon consulté : « Plomberie — NADAL SERVICES » est une
+// Le titre reprend le rayon consulté : « Plomberie — NADAL MULTISERVICES » est une
 // bien meilleure entrée de résultat que « Catalogue » répété douze fois.
 export async function generateMetadata({
   searchParams,
@@ -24,7 +24,7 @@ export async function generateMetadata({
     title: actif ? actif.name : 'Catalogue',
     description: actif
       ? `${actif.name} — disponible en boutique à Bingerville, Abidjan. Commande en ligne et retrait sur place.`
-      : 'Tout le catalogue NADAL SERVICES : staff, plomberie, décoration, fosse septique, matériaux décoratifs.',
+      : 'Tout le catalogue NADAL MULTISERVICES : staff, plomberie, décoration, fosse septique, matériaux décoratifs.',
     alternates: { canonical: actif ? `/catalogue?rayon=${actif.slug}` : '/catalogue' },
   };
 }

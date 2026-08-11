@@ -71,7 +71,7 @@ export function FeuilleA4({
             <div>
               <div className="font-display text-2xl font-bold uppercase tracking-industrial">
                 <span style={{ color: 'rgb(var(--accent))' }}>
-                  {shop.name ?? 'NADAL SERVICES'}
+                  {shop.name ?? 'NADAL MULTISERVICES'}
                 </span>
               </div>
               {shop.tagline && (

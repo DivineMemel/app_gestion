@@ -1,4 +1,4 @@
-// Jeu de données de démonstration — NADAL SERVICES.
+// Jeu de données de démonstration — NADAL MULTISERVICES.
 //
 // Sert tant qu'aucun projet Supabase n'est configuré : l'app tourne alors
 // entièrement en local, pour qu'on puisse encaisser, chiffrer un devis ou
@@ -326,15 +326,16 @@ export function seed(): Record<string, Row[]> {
     shop_settings: [
       {
         id: 1,
-        name: 'NADAL SERVICES',
+        name: 'NADAL MULTISERVICES',
         tagline: 'Staff · Plomberie · Décoration · Fosse septique',
         phone: '+225 07 04 74 03 18',
         whatsapp: '+225 07 04 74 03 18',
         email: 'nadalservices97@gmail.com',
         address: 'Bingerville, nouvelle gare — Abidjan',
         logo_url: null,
-        invoice_footer: 'Merci de votre confiance. NADAL SERVICES — Bingerville.',
+        invoice_footer: 'Merci de votre confiance. NADAL MULTISERVICES — Bingerville.',
         allow_negative_stock: false,
+        enforce_credit_limit: true,
         default_min_stock: 5,
         online_orders_open: true,
         updated_at: ilY(0),
@@ -343,13 +344,19 @@ export function seed(): Record<string, Row[]> {
 
     team_members: [
       { id: 'm1', name: 'Kouassi Assamoi', email: 'patron@nadalservices.ci',
-        role: 'patron', status: 'active', phone: '0707112244', created_at: ilY(200) },
+        role: 'patron', roles: ['patron'],
+        status: 'active', phone: '0707112244', created_at: ilY(200) },
       { id: 'm2', name: 'Awa Sanogo', email: 'awa@nadalservices.ci',
-        role: 'gerant', status: 'active', phone: '0709112233', created_at: ilY(90) },
+        role: 'gerant', roles: ['gerant'],
+        status: 'active', phone: '0709112233', created_at: ilY(90) },
+      // Yao tient la caisse le matin et réceptionne les camions l'après-midi :
+      // le cas exact pour lequel les rôles multiples existent.
       { id: 'm3', name: 'Yao Kouassi', email: 'yao@nadalservices.ci',
-        role: 'vendeur', status: 'active', phone: '0505889977', created_at: ilY(45) },
+        role: 'vendeur', roles: ['vendeur', 'magasinier'],
+        status: 'active', phone: '0505889977', created_at: ilY(45) },
       { id: 'm4', name: 'Bakary Coulibaly', email: 'bakary@nadalservices.ci',
-        role: 'magasinier', status: 'pending', phone: '0102446688', created_at: ilY(2) },
+        role: 'magasinier', roles: ['magasinier'],
+        status: 'pending', phone: '0102446688', created_at: ilY(2) },
     ],
 
     categories: RAYONS.map((r) => ({

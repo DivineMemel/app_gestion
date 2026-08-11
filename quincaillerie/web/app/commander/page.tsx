@@ -16,13 +16,13 @@ export default function CommanderPage() {
   const [confirme, setConfirme] = useState<{ number: string; total_xof: number } | null>(
     null,
   );
-  const [shopName, setShopName] = useState('NADAL SERVICES');
+  const [shopName, setShopName] = useState('NADAL MULTISERVICES');
 
   useEffect(() => {
     // Le nom de la boutique est purement décoratif ici : on évite un aller-
     // retour serveur bloquant et on garde la page instantanée.
-    document.title = 'Commander — NADAL SERVICES';
-    setShopName('NADAL SERVICES');
+    document.title = 'Commander — NADAL MULTISERVICES';
+    setShopName('NADAL MULTISERVICES');
   }, []);
 
   async function envoyer(e: React.FormEvent) {

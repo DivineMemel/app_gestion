@@ -36,7 +36,7 @@ export async function generateMetadata({
     title: p.name,
     description:
       p.description ??
-      `${p.name}${prix}. Disponible chez NADAL SERVICES à Bingerville, Abidjan. Commande en ligne, retrait en boutique.`,
+      `${p.name}${prix}. Disponible chez NADAL MULTISERVICES à Bingerville, Abidjan. Commande en ligne, retrait en boutique.`,
     alternates: { canonical: `/produit/${p.slug ?? slug}` },
     openGraph: {
       type: 'website',

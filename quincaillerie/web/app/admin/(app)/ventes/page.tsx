@@ -28,7 +28,7 @@ export default function VentesPage() {
   const peutAnnuler = useCanWrite('ventes');
 
   const [ventes, setVentes] = useState<Sale[]>([]);
-  const [shop, setShop] = useState<ShopHeader>({ name: 'NADAL SERVICES' });
+  const [shop, setShop] = useState<ShopHeader>({ name: 'NADAL MULTISERVICES' });
   const [periode, setPeriode] = useState<Periode>('jour');
   const [recherche, setRecherche] = useState('');
   const [chargement, setChargement] = useState(true);

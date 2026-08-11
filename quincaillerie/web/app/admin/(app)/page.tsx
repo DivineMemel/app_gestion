@@ -42,9 +42,9 @@ const VIDE: Stats = {
 
 export default function DashboardPage() {
   const me = useMember();
-  const voitFinances = canView(me.role, 'comptabilite');
-  const voitCouts = canSeeCosts(me.role);
-  const voitComptoir = canView(me.role, 'ventes');
+  const voitFinances = canView(me.roles, 'comptabilite');
+  const voitCouts = canSeeCosts(me.roles);
+  const voitComptoir = canView(me.roles, 'ventes');
 
   const [stats, setStats] = useState<Stats>(VIDE);
   const [dernieres, setDernieres] = useState<Sale[]>([]);
@@ -140,7 +140,7 @@ export default function DashboardPage() {
         title={`Bonjour ${me.name.split(' ')[0]}`}
         subtitle={dateShort(new Date().toISOString())}
         actions={
-          canView(me.role, 'caisse') ? (
+          canView(me.roles, 'caisse') ? (
             <Link href="/admin/caisse" className="btn-primary">
               <ScanBarcode className="h-4 w-4" strokeWidth={2} />
               Nouvelle vente
@@ -229,7 +229,7 @@ export default function DashboardPage() {
         <section>
           <SectionTitle
             title="À recommander"
-            href={canView(me.role, 'stock') ? '/admin/stock' : undefined}
+            href={canView(me.roles, 'stock') ? '/admin/stock' : undefined}
           />
           <div className="surface">
             {chargement ? (
