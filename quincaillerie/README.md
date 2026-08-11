@@ -135,8 +135,15 @@ coupure réseau, un stock décrémenté sans vente en face.
   à partir des colonnes déclarées. PostgREST y résout les jointures par clé
   étrangère — laisser passer `select` revient à exposer, depuis n'importe
   quelle table, toutes les tables voisines.
-- Les **colonnes de coût** (prix d'achat, marge) sont retirées des réponses
-  pour vendeur et magasinier, **y compris dans une table jointe**.
+- Les **prix d'achat** sont retirés des réponses pour tout rôle autre que
+  `patron`, **y compris dans une table jointe**. Le gérant garde le reste de
+  son périmètre, comptabilité comprise ; il ne voit simplement pas ce qu'un
+  fournisseur consent comme prix.
+- Écrire un coût suppose d'avoir le droit de le lire — sinon on le déduirait
+  en le saisissant. Valoriser un arrivage est donc réservé au patron.
+- `sale_items.cost_price_xof` n'est modifiable par **personne** : il est figé au
+  moment de la vente, et c'est ce qui empêche les marges d'un mois clos de
+  bouger quand un prix d'achat change aujourd'hui.
 - Certaines colonnes sont **réservées en écriture** : un vendeur peut modifier
   une fiche client mais pas son plafond d'ardoise — sinon il lui suffirait de
   le relever avant d'encaisser à crédit.
@@ -160,8 +167,8 @@ coupure réseau, un stock décrémenté sans vente en face.
 
 | Rôle | Accès |
 |---|---|
-| `patron` | Tout, y compris comptes, réglages, marges et prix d'achat |
-| `gerant` | Tout le quotidien, sauf comptes et réglages |
+| `patron` | Tout, y compris comptes, réglages et **prix d'achat** |
+| `gerant` | Tout le quotidien, sauf comptes, réglages et **prix d'achat** |
 | `vendeur` | Caisse, clients, devis, commandes. Ni marge ni prix d'achat |
 | `magasinier` | Stock, produits, réceptions. Pas d'accès à la caisse |
 
