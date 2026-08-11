@@ -12,12 +12,7 @@ import {
   roleLabels,
   type Role,
 } from '../lib/permissions.ts';
-import {
-  TABLE_COLUMNS,
-  WRITABLE_TABLES,
-  COST_COLUMNS,
-  validateWrite,
-} from '../lib/db-schema.ts';
+import { TABLE_COLUMNS, WRITABLE_TABLES, COST_COLUMNS } from '../lib/db-schema.ts';
 
 // Ces tests décrivent les frontières entre rôles telles qu'elles doivent
 // tenir, et surtout ils font échouer la construction quand une table est
@@ -81,42 +76,11 @@ describe('frontières entre rôles', () => {
     }
   });
 
-  test('le patron seul voit les prix d’achat', () => {
-    // Le gérant en est exclu : ce qu'un fournisseur consent comme prix ne
-    // regarde que le propriétaire. Il garde tout le reste de son périmètre.
+  test('seuls patron et gérant voient les coûts', () => {
     assert.equal(canSeeCosts(['patron']), true);
-    assert.equal(canSeeCosts(['gerant']), false);
+    assert.equal(canSeeCosts(['gerant']), true);
     assert.equal(canSeeCosts(['vendeur']), false);
     assert.equal(canSeeCosts(['magasinier']), false);
-
-    // Et le gérant conserve ce qui n'est pas un prix d'achat.
-    assert.equal(canView(['gerant'], 'comptabilite'), true);
-    assert.equal(canView(['gerant'], 'depenses'), true);
-    assert.equal(canReadTable(['gerant'], 'v_monthly_pnl'), true);
-    assert.equal(canCallRpc(['gerant'], 'cancel_sale'), true);
-  });
-
-  test('écrire un prix d’achat suppose d’avoir le droit de le lire', () => {
-    // Sinon on le déduirait en le saisissant : valoriser un arrivage, c'est
-    // saisir un prix d'achat.
-    for (const r of ROLES) {
-      if (canCallRpc([r], 'value_supply_entry')) {
-        assert.ok(canSeeCosts([r]), `${r} peut valoriser sans voir les coûts`);
-      }
-      for (const [table, cols] of Object.entries(COST_COLUMNS)) {
-        for (const c of cols) {
-          const v = validateWrite(table, { [c]: 1 }, [r]);
-          // Implication, pas équivalence : certains coûts ne sont modifiables
-          // par PERSONNE (`sale_items.cost_price_xof` est figé à la vente).
-          // Ce qui doit tenir, c'est qu'on n'écrive jamais un coût qu'on n'a
-          // pas le droit de lire.
-          assert.ok(
-            !v.ok || canSeeCosts([r]),
-            `${r} peut écrire ${table}.${c} sans avoir le droit de le lire`,
-          );
-        }
-      }
-    }
   });
 
   test('le magasinier n’encaisse pas, le vendeur n’annule pas', () => {

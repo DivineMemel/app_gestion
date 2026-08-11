@@ -47,9 +47,8 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 export const ROLE_HINTS: Record<Role, string> = {
-  patron: 'Accès total, y compris comptes, réglages et prix d’achat.',
-  gerant:
-    'Tout le quotidien, sauf la gestion des comptes et les réglages. Ne voit pas les prix d’achat.',
+  patron: 'Accès total, y compris comptes, marges et réglages.',
+  gerant: 'Tout le quotidien, sauf la gestion des comptes et les réglages.',
   vendeur: 'Caisse, clients, devis et commandes. Ne voit ni prix d’achat ni marge.',
   magasinier: 'Stock, produits et réceptions fournisseurs. Pas d’accès à la caisse.',
 };
@@ -129,17 +128,11 @@ export function canWriteModule(roles: Roles, m: ModuleKey): boolean {
 }
 
 /**
- * PRIX D'ACHAT DES PRODUITS : le patron seul.
- *
- * Ce qu'un fournisseur consent comme prix ne regarde que le propriétaire. Le
- * gérant en est exclu — il garde tout le reste de son périmètre, comptabilité
- * comprise.
- *
- * Le serveur retire ces colonnes des réponses pour tous les autres rôles, à
- * quelque niveau qu'elles apparaissent, y compris dans une table jointe.
+ * Prix d'achat, coût des marchandises et marge : réservés à ceux qui pilotent
+ * la boutique. Le serveur retire ces colonnes des réponses pour les autres.
  */
 export function canSeeCosts(roles: Roles): boolean {
-  return roles.includes('patron');
+  return roles.some((r) => r === 'patron' || r === 'gerant');
 }
 
 export function moduleForPath(pathname: string): ModuleKey | null {
@@ -199,8 +192,7 @@ const TABLE_RULES: Record<string, TableRule> = {
   supply_entry_items: { read: DEPOT, write: DEPOT },
   stock_counts: { read: DEPOT, write: DEPOT },
   stock_count_items: { read: DEPOT, write: DEPOT },
-  // File d'attente de celui qui valorise — donc du patron seul.
-  v_appro_a_valoriser: { read: ['patron'], write: [] },
+  v_appro_a_valoriser: { read: PILOTES, write: [] },
   // Ce que les coupures réseau ont coûté en exactitude : à régulariser par le
   // dépôt, c'est son métier.
   v_stock_negatif: { read: DEPOT, write: [] },
@@ -256,8 +248,8 @@ export const RPC_RULES: Record<string, Role[]> = {
   // Faire entrer la marchandise : le dépôt.
   post_supply_entry: DEPOT,
   cancel_supply_entry: DEPOT,
-  // La valoriser, c'est saisir un prix d'achat : le patron seul.
-  value_supply_entry: ['patron'],
+  // La valoriser : ceux qui ont le droit de voir les prix d'achat.
+  value_supply_entry: PILOTES,
 
   open_stock_count: DEPOT,
   validate_stock_count: DEPOT,

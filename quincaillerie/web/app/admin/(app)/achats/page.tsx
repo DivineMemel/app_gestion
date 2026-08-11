@@ -172,17 +172,11 @@ export default function AchatsPage() {
     e.preventDefault();
     if (!peutEcrire) return;
 
-    // Le prix d'achat n'est envoyé que par qui a le droit de le voir. Envoyer
-    // un 0 « par défaut » depuis un compte qui n'y a pas accès faisait refuser
-    // toute la requête par le serveur — le bon de commande était impossible à
-    // enregistrer, sans que l'écran explique pourquoi.
     const propres = lignes
       .map((l) => ({
         product_id: l.product_id,
         qty_base: Number(l.qty_base.replace(',', '.')),
-        ...(voitCouts
-          ? { unit_cost_xof: Number(l.unit_cost_xof.replace(/\D/g, '')) || 0 }
-          : {}),
+        unit_cost_xof: Number(l.unit_cost_xof.replace(/\D/g, '')) || 0,
       }))
       .filter((l) => Number.isFinite(l.qty_base) && l.qty_base > 0);
 

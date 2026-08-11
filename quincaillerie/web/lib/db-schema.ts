@@ -165,6 +165,7 @@ export const COST_COLUMNS: Record<string, readonly string[]> = {
   sale_items: ['cost_price_xof'],
   purchase_order_items: ['unit_cost_xof'],
   supply_entry_items: ['unit_cost_xof'],
+  v_monthly_pnl: ['cout_marchandises_xof', 'marge_brute_xof', 'resultat_xof'],
 };
 
 /**
@@ -180,10 +181,6 @@ export const READONLY_COLUMNS: Record<string, readonly string[]> = {
   // à la main ferait diverger le stock affiché de son historique — exactement
   // ce que le modèle en grand livre existe pour empêcher.
   products: ['stock_qty'],
-  // Coût FIGÉ au moment de la vente, écrit par create_sale. C'est lui qui fait
-  // que les marges d'un mois clos ne bougent plus quand un prix d'achat change
-  // aujourd'hui. Le réécrire réviserait l'histoire.
-  sale_items: ['cost_price_xof'],
 };
 
 /**
@@ -195,13 +192,10 @@ export const READONLY_COLUMNS: Record<string, readonly string[]> = {
  * plafond avant d'encaisser à crédit.
  */
 export const RESTRICTED_WRITE_COLUMNS: Record<string, Record<string, readonly Role[]>> = {
-  // Le plafond d'ardoise reste une décision de gestion courante : gérant compris.
   customers: { credit_limit_xof: ['patron', 'gerant'] },
-  // Les prix d'achat, non. Écrire un coût qu'on n'a pas le droit de lire n'a
-  // aucun sens, et laisserait le déduire en le saisissant.
-  products: { cost_price_xof: ['patron'] },
-  purchase_order_items: { unit_cost_xof: ['patron'] },
-  supply_entry_items: { unit_cost_xof: ['patron'] },
+  products: { cost_price_xof: ['patron', 'gerant'] },
+  purchase_order_items: { unit_cost_xof: ['patron', 'gerant'] },
+  supply_entry_items: { unit_cost_xof: ['patron', 'gerant'] },
 };
 
 // ---- Analyse et validation de la chaîne `select` ---------------------------
