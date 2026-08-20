@@ -113,6 +113,10 @@ export const TABLE_COLUMNS: Record<string, readonly string[]> = {
     'depenses_xof', 'resultat_xof',
   ],
   v_top_products: ['product_id', 'product_name', 'qty_base_vendue', 'chiffre_xof', 'nb_ventes'],
+  v_ventes_produits: [
+    'jour', 'product_id', 'product_name', 'base_unit', 'qty_base',
+    'chiffre_xof', 'cout_xof', 'marge_xof', 'nb_ventes',
+  ],
   v_appro_a_valoriser: ['id', 'number', 'received_at', 'supplier_name', 'nb_lignes', 'qty_totale'],
   v_stock_negatif: [
     'id', 'sku', 'name', 'base_unit', 'stock_qty', 'category_name',
@@ -166,6 +170,9 @@ export const COST_COLUMNS: Record<string, readonly string[]> = {
   purchase_order_items: ['unit_cost_xof'],
   supply_entry_items: ['unit_cost_xof'],
   v_monthly_pnl: ['cout_marchandises_xof', 'marge_brute_xof', 'resultat_xof'],
+  // Un vendeur a le droit de savoir ce qui part du rayon — pas ce que ça
+  // rapporte. Il garde la quantité et le chiffre, il perd le reste.
+  v_ventes_produits: ['cout_xof', 'marge_xof'],
 };
 
 /**

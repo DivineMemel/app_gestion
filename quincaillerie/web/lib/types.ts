@@ -300,6 +300,25 @@ export type Expense = {
   expense_categories?: { name: string } | null;
 };
 
+/**
+ * Une ligne de `v_ventes_produits` : un produit, un jour.
+ *
+ * `cout_xof` et `marge_xof` sont ABSENTS de la réponse pour un vendeur — la
+ * passerelle les retire (COST_COLUMNS). D'où l'optionnel : le typer obligatoire
+ * ferait croire au code appelant qu'il peut toujours les afficher.
+ */
+export type VenteProduitJour = {
+  jour: string;
+  product_id: string | null;
+  product_name: string;
+  base_unit: string | null;
+  qty_base: number;
+  chiffre_xof: number;
+  cout_xof?: number;
+  marge_xof?: number;
+  nb_ventes: number;
+};
+
 export type MonthlyPnl = {
   mois: string;
   chiffre_xof: number;

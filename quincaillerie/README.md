@@ -30,7 +30,7 @@ clair/sombre. Un vrai fichier logo peut le remplacer via Paramètres.
 Vitrine publique                    Back-office
   /                 landing           /admin              tableau de bord
   /catalogue        par rayon         /admin/caisse       POS
-  /commander        panier + retrait  /admin/ventes       tickets, annulation
+  /commander        panier + retrait  /admin/ventes       tickets + par produit
                                       /admin/commandes    commandes en ligne
                                       /admin/devis        devis → vente
                                       /admin/clients      fiches + ardoises
@@ -207,7 +207,7 @@ sans toucher une ligne de code.
 
 1. Créer un projet **dédié** (ne pas réutiliser celui d'Agenda ou de MUSE).
 2. SQL Editor → passer les migrations **dans l'ordre**, une par une, de
-   `001_init.sql` à `010_nadal_multiservices.sql`.
+   `001_init.sql` à `011_ventes_par_produit.sql`.
 3. Créer un bucket Storage **public** nommé `media`.
 4. Project Settings → API → récupérer l'URL, la clé publique et la clé secrète.
 
@@ -270,6 +270,7 @@ Sans ces clés, la fonctionnalité est simplement inactive — rien ne casse.
 | Tableau de bord | ✅ |
 | Caisse (unités multiples, crédit, ticket) | ✅ |
 | Ventes : historique, réimpression, annulation | ✅ |
+| Ventes & marges par produit (même écran, second onglet) | ✅ |
 | Commandes en ligne → retrait → vente | ✅ |
 | Devis → vente, sortie A4 imprimable | ✅ |
 | Clients & ardoises | ✅ |
@@ -376,6 +377,12 @@ un Postgres jetable (PGlite) coûterait moins cher que ce doublon.
 `unit_price_xof` envoyé par la caisse : c'est voulu (on négocie), mais rien ne
 mesure encore l'écart au prix catalogue. Sans cette mesure, une marge qui fond
 ne se distingue pas d'un fournisseur qui augmente.
+
+**Le chiffre par produit ignore la remise de pied de ticket.** `sales.discount_xof`
+porte sur la vente entière : la répartir entre les lignes demanderait une règle
+(au prorata ? sur l'article le plus cher ?) qu'aucun commerçant n'a demandée.
+L'onglet « Par produit » additionne donc les lignes brutes, et le dit à l'écran.
+Le total encaissé, lui, reste celui des tickets.
 
 ## Déploiement
 

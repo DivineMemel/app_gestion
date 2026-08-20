@@ -176,6 +176,49 @@ function vue(nom: string, t: Tables): Row[] {
       .sort((a, b) => (a.mois < b.mois ? 1 : -1));
   }
 
+  // Même grain que la vue Postgres : un agrégat par jour ET par produit, que
+  // l'écran Ventes ré-agrège sur la période choisie.
+  if (nom === 'v_ventes_produits') {
+    const par = new Map<string, Row>();
+    for (const v of t.sales) {
+      if (v.status === 'annulee') continue;
+      // Abidjan est à UTC+0 : la date ISO est déjà la date locale.
+      const jour = String(v.sold_at).slice(0, 10);
+      for (const it of t.sale_items.filter((i) => i.sale_id === v.id)) {
+        const prod = t.products.find((x) => x.id === it.product_id);
+        const k = `${jour}|${it.product_id ?? it.product_name}`;
+        const e = par.get(k) ?? {
+          jour,
+          product_id: it.product_id ?? null,
+          product_name: it.product_name,
+          base_unit: prod?.base_unit ?? null,
+          qty_base: 0,
+          chiffre_xof: 0,
+          cout_xof: 0,
+          marge_xof: 0,
+          nb_ventes: 0,
+          _ventes: new Set<string>(),
+        };
+        const base = Number(it.qty) * Number(it.unit_factor);
+        e.qty_base += base;
+        e.chiffre_xof += Number(it.line_total_xof);
+        e.cout_xof += base * Number(it.cost_price_xof ?? 0);
+        (e._ventes as Set<string>).add(v.id);
+        par.set(k, e);
+      }
+    }
+    return [...par.values()].map((e) => {
+      const { _ventes, ...ligne } = e;
+      return {
+        ...ligne,
+        chiffre_xof: Math.round(Number(ligne.chiffre_xof)),
+        cout_xof: Math.round(Number(ligne.cout_xof)),
+        marge_xof: Math.round(Number(ligne.chiffre_xof) - Number(ligne.cout_xof)),
+        nb_ventes: (_ventes as Set<string>).size,
+      };
+    });
+  }
+
   if (nom === 'v_top_products') {
     const limite = Date.now() - 90 * 86_400_000;
     const par = new Map<string, Row>();

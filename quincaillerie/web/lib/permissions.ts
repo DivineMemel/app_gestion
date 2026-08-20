@@ -215,6 +215,9 @@ const TABLE_RULES: Record<string, TableRule> = {
   v_customer_balances: { read: COMPTOIR, write: [] },
   v_monthly_pnl: { read: PILOTES, write: [] },
   v_top_products: { read: PILOTES, write: [] },
+  // Lisible par tout le comptoir : les colonnes de marge en sont retirées pour
+  // qui n'a pas droit aux coûts (COST_COLUMNS dans lib/db-schema.ts).
+  v_ventes_produits: { read: COMPTOIR, write: [] },
 };
 
 export function canReadTable(roles: Roles, table: string): boolean {

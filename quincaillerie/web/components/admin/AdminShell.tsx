@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   LayoutDashboard,
   ScanBarcode,
@@ -22,6 +22,8 @@ import {
   ScrollText,
   ExternalLink,
   LogOut,
+  Menu,
+  X,
 } from 'lucide-react';
 import { Wordmark } from '@/components/Wordmark';
 import { DemoBanner } from '@/components/admin/DemoBanner';
@@ -75,7 +77,19 @@ const SECTIONS: { title: string; items: NavItem[] }[] = [
   },
 ];
 
-// Barre du bas sur mobile : les 5 gestes du quotidien, rien d'autre.
+/**
+ * Barre du bas sur mobile : les gestes du quotidien, dans l'ordre d'usage.
+ *
+ * Elle n'a jamais montré que ceux-là, et le reste du menu n'existait que dans
+ * la colonne de gauche — masquée sous 768 px. Sur un téléphone tenu debout, la
+ * moitié de l'application était donc inatteignable : il fallait basculer en
+ * paysage pour voir Produits, Devis, Comptabilité ou même se déconnecter.
+ *
+ * D'où la règle : cette liste est un RACCOURCI, pas le menu. Les quatre
+ * premières entrées visibles par le rôle tiennent dans la barre, la cinquième
+ * cellule ouvre le menu complet, qui reprend exactement les mêmes sections que
+ * la colonne de gauche.
+ */
 const MOBILE: NavItem[] = [
   { href: '/admin', label: 'Bord', icon: LayoutDashboard, exact: true },
   { href: '/admin/caisse', label: 'Caisse', icon: ScanBarcode },
@@ -83,6 +97,9 @@ const MOBILE: NavItem[] = [
   { href: '/admin/stock', label: 'Stock', icon: Boxes },
   { href: '/admin/clients', label: 'Clients', icon: Users },
 ];
+
+/** Au-delà de cinq cellules, les libellés deviennent illisibles sur un 320 px. */
+const RACCOURCIS_MOBILE = 4;
 
 export function AdminShell({
   children,
@@ -99,6 +116,23 @@ export function AdminShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [menuOuvert, setMenuOuvert] = useState(false);
+
+  // Le menu se referme dès qu'on a navigué : sur un téléphone, revenir en
+  // arrière pour trouver l'écran demandé derrière un panneau resté ouvert est
+  // le genre de détail qui fait croire que l'application a planté.
+  useEffect(() => setMenuOuvert(false), [pathname]);
+
+  // Pendant que le panneau couvre l'écran, c'est LUI qui défile, pas la page
+  // en dessous.
+  useEffect(() => {
+    if (!menuOuvert) return;
+    const avant = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = avant;
+    };
+  }, [menuOuvert]);
 
   const isActive = (href: string, exact?: boolean) =>
     exact ? pathname === href : pathname.startsWith(href);
@@ -121,6 +155,8 @@ export function AdminShell({
   })).filter((s) => s.items.length > 0);
 
   const mobileItems = MOBILE.filter((it) => seesHref(it.href));
+  // Ce qui déborde de la barre n'est pas perdu : le menu complet le reprend.
+  const raccourcis = mobileItems.slice(0, RACCOURCIS_MOBILE);
 
   async function logout() {
     await fetch('/api/admin/logout', { method: 'POST' });
@@ -255,17 +291,133 @@ export function AdminShell({
           </MemberProvider>
         </main>
 
+        {/* ---- Menu complet, mobile : mêmes sections que la colonne de gauche ---- */}
+        {menuOuvert && (
+          <div
+            className="fixed inset-0 z-40 flex flex-col md:hidden"
+            style={{ background: 'rgb(var(--bg))' }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu"
+          >
+            <div
+              className="flex shrink-0 items-center justify-between border-b px-4 py-2.5"
+              style={{ borderColor: 'rgb(var(--line))' }}
+            >
+              {/* Le logo ramène au tableau de bord ; s'il y est déjà, le
+                  changement de route n'a pas lieu et ne refermerait rien. */}
+              <div onClick={() => setMenuOuvert(false)}>
+                <Wordmark size="sm" href="/admin" name={shopName} />
+              </div>
+              <button
+                onClick={() => setMenuOuvert(false)}
+                className="btn-ghost"
+                aria-label="Fermer le menu"
+              >
+                <X className="h-5 w-5" strokeWidth={1.75} />
+              </button>
+            </div>
+
+            {/* `pb-24` : la barre du bas flotte au-dessus, elle ne doit pas
+                masquer la dernière entrée du menu. */}
+            <div className="flex-1 overflow-y-auto px-4 pb-24 pt-4">
+              <div className="space-y-6">
+                {sections.map((section) => (
+                  <div key={section.title}>
+                    <div
+                      className="mb-1.5 text-[10px] font-bold uppercase tracking-wide2"
+                      style={{ color: 'rgb(var(--muted))' }}
+                    >
+                      {section.title}
+                    </div>
+                    <nav className="space-y-px">
+                      {section.items.map(({ href, label, icon: Icon, exact }) => {
+                        const active = isActive(href, exact);
+                        return (
+                          <Link
+                            key={href}
+                            href={href}
+                            onClick={() => setMenuOuvert(false)}
+                            // Cible large : ces liens se touchent au pouce,
+                            // souvent avec des mains de chantier.
+                            className="flex items-center gap-3 px-2 py-3 text-[15px]"
+                            style={{
+                              color: active ? 'rgb(var(--ink))' : 'rgb(var(--ink-soft))',
+                              background: active ? 'rgb(var(--surface-2))' : 'transparent',
+                              fontWeight: active ? 600 : 400,
+                              borderLeft: active
+                                ? '2px solid rgb(var(--accent))'
+                                : '2px solid transparent',
+                            }}
+                          >
+                            <Icon className="h-5 w-5 shrink-0" strokeWidth={1.75} />
+                            <span className="truncate">{label}</span>
+                          </Link>
+                        );
+                      })}
+                    </nav>
+                  </div>
+                ))}
+              </div>
+
+              {/* Profil, vitrine et déconnexion n'existaient que dans la colonne
+                  de gauche : sur téléphone, on ne pouvait pas se déconnecter. */}
+              <div
+                className="mt-6 border-t pt-4"
+                style={{ borderColor: 'rgb(var(--line))' }}
+              >
+                <Link
+                  href="/admin/profil"
+                  onClick={() => setMenuOuvert(false)}
+                  className="block px-2 py-2"
+                >
+                  <div
+                    className="text-[15px] font-semibold"
+                    style={{ color: 'rgb(var(--ink))' }}
+                  >
+                    {memberName}
+                  </div>
+                  <div
+                    className="text-[10px] font-bold uppercase tracking-wide2"
+                    style={{ color: 'rgb(var(--accent))' }}
+                  >
+                    {roleLabels(roles)} · mon profil
+                  </div>
+                </Link>
+
+                <Link
+                  href="/"
+                  onClick={() => setMenuOuvert(false)}
+                  className="flex items-center gap-3 px-2 py-3 text-[13px]"
+                  style={{ color: 'rgb(var(--muted))' }}
+                >
+                  <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
+                  Voir la boutique
+                </Link>
+                <button
+                  onClick={logout}
+                  className="flex w-full items-center gap-3 px-2 py-3 text-left text-[13px]"
+                  style={{ color: 'rgb(var(--muted))' }}
+                >
+                  <LogOut className="h-4 w-4" strokeWidth={1.75} />
+                  Déconnexion
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <nav
-          className="glass fixed inset-x-0 bottom-0 z-30 border-t md:hidden"
+          className="glass fixed inset-x-0 bottom-0 z-50 border-t md:hidden"
           style={{ borderColor: 'rgb(var(--line))' }}
         >
           <div
             className="grid"
             style={{
-              gridTemplateColumns: `repeat(${mobileItems.length}, minmax(0, 1fr))`,
+              gridTemplateColumns: `repeat(${raccourcis.length + 1}, minmax(0, 1fr))`,
             }}
           >
-            {mobileItems.map(({ href, label, icon: Icon, exact }) => {
+            {raccourcis.map(({ href, label, icon: Icon, exact }) => {
               const active = isActive(href, exact);
               return (
                 <Link
@@ -283,6 +435,26 @@ export function AdminShell({
                 </Link>
               );
             })}
+
+            {/* La cellule qui manquait : tout le reste de l'application. */}
+            <button
+              onClick={() => setMenuOuvert((v) => !v)}
+              className="flex flex-col items-center gap-1 py-2"
+              aria-expanded={menuOuvert}
+              aria-label="Menu complet"
+              style={{
+                color: menuOuvert ? 'rgb(var(--accent))' : 'rgb(var(--muted))',
+              }}
+            >
+              {menuOuvert ? (
+                <X className="h-5 w-5" strokeWidth={1.75} />
+              ) : (
+                <Menu className="h-5 w-5" strokeWidth={1.75} />
+              )}
+              <span className="text-[9px] font-semibold uppercase tracking-industrial">
+                Menu
+              </span>
+            </button>
           </div>
         </nav>
       </div>
