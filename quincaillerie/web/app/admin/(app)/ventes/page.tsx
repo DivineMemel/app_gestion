@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Search, Eye, Ban } from 'lucide-react';
 import { db, uniqueChannel } from '@/lib/admin-db';
 import { useCanSeeCosts, useCanWrite, useMember } from '@/lib/member';
+import { useFiltres } from '@/lib/filtres';
 import { PageHeader } from '@/components/admin/PageHeader';
 import { Ticket, type ShopHeader, type TicketData } from '@/components/admin/Ticket';
 import {
@@ -36,6 +37,9 @@ type Vue = 'tickets' | 'produits';
  */
 const MAX_LIGNES_PRODUITS = 5_000;
 
+/** Même logique pour les tickets servant au rapprochement des totaux. */
+const MAX_TICKETS_RAPPROCHES = 2_000;
+
 /**
  * Le code part sur Vercel en deux minutes, la migration se passe à la main dans
  * le SQL editor : entre les deux, la vue n'existe pas. Autant le dire en clair
@@ -57,6 +61,12 @@ const STATUT_CLASSE: Record<SaleStatus, string> = {
   annulee: 'badge',
 };
 
+/**
+ * De quoi rapprocher les deux onglets : le total des lignes n'est pas le total
+ * encaissé, et l'écart a un nom — la remise de pied de ticket.
+ */
+type Rapprochement = { lignes: number; remise: number; encaisse: number };
+
 /** Un produit sur toute la période, recomposé à partir des lignes du jour. */
 type LigneProduit = {
   cle: string;
@@ -74,12 +84,21 @@ export default function VentesPage() {
   const peutAnnuler = useCanWrite('ventes');
   const voitLesCouts = useCanSeeCosts();
 
-  const [vue, setVue] = useState<Vue>('tickets');
+  // Vue et période survivent à un aller-retour vers un autre écran : comparer
+  // sans le savoir deux périodes différentes est la première cause de « les
+  // chiffres ne tombent pas juste ».
+  const [filtres, setFiltre, filtresPrets] = useFiltres('ventes', {
+    vue: 'tickets',
+    periode: 'jour',
+  });
+  const vue = filtres.vue as Vue;
+  const periode = filtres.periode as Periode;
+
   const [ventes, setVentes] = useState<Sale[]>([]);
   const [produits, setProduits] = useState<VenteProduitJour[]>([]);
   const [tronque, setTronque] = useState<string | null>(null);
+  const [tickets, setTickets] = useState<Rapprochement | null>(null);
   const [shop, setShop] = useState<ShopHeader>({ name: 'NADAL MULTISERVICES' });
-  const [periode, setPeriode] = useState<Periode>('jour');
   const [recherche, setRecherche] = useState('');
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -87,8 +106,11 @@ export default function VentesPage() {
   const [ticket, setTicket] = useState<TicketData | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const chargerTickets = useCallback(async () => {
-    setChargement(true);
+  const chargerTickets = useCallback(async (silencieux = false) => {
+    // Le rafraîchissement de fond ne doit pas vider l'écran : sans ce garde-fou
+    // la page repassait par « Chargement… » toutes les quinze secondes, ce qui
+    // se lit comme un rechargement permanent.
+    if (!silencieux) setChargement(true);
     let q = db
       .from('sales')
       .select(
@@ -124,8 +146,8 @@ export default function VentesPage() {
    * qui y ont droit : la passerelle retire ces colonnes pour les autres, et
    * l'écran cesse simplement de les afficher.
    */
-  const chargerProduits = useCallback(async () => {
-    setChargement(true);
+  const chargerProduits = useCallback(async (silencieux = false) => {
+    if (!silencieux) setChargement(true);
     let q = db
       .from('v_ventes_produits')
       .select(
@@ -140,8 +162,35 @@ export default function VentesPage() {
       q = q.gte('jour', debut).lte('jour', abidjanToday());
     }
 
-    const { data, error } = await q;
+    // Les tickets de la MÊME période, pour pouvoir expliquer l'écart entre la
+    // somme des lignes et ce qui est réellement rentré en caisse.
+    let qt = db
+      .from('sales')
+      .select('subtotal_xof, discount_xof, total_xof, status, sold_at')
+      .order('sold_at', { ascending: false })
+      .limit(MAX_TICKETS_RAPPROCHES);
+    if (periode !== 'tout') {
+      const { start, end } =
+        periode === 'jour' ? abidjanDayRange() : abidjanMonthRange();
+      qt = qt.gte('sold_at', start).lte('sold_at', end);
+    }
+
+    const [{ data, error }, t] = await Promise.all([q, qt]);
     let lignes = (data ?? []) as VenteProduitJour[];
+
+    const ventesPeriode = (t.data ?? []) as Sale[];
+    // Au-delà du plafond le rapprochement serait faux : mieux vaut ne rien
+    // afficher qu'un écart calculé sur une partie des tickets.
+    if (t.error || ventesPeriode.length >= MAX_TICKETS_RAPPROCHES) {
+      setTickets(null);
+    } else {
+      const valides = ventesPeriode.filter((v) => v.status !== 'annulee');
+      setTickets({
+        lignes: valides.reduce((n, v) => n + v.subtotal_xof, 0),
+        remise: valides.reduce((n, v) => n + v.discount_xof, 0),
+        encaisse: valides.reduce((n, v) => n + v.total_xof, 0),
+      });
+    }
 
     if (lignes.length >= MAX_LIGNES_PRODUITS) {
       const plusAncien = lignes[lignes.length - 1]!.jour;
@@ -159,13 +208,16 @@ export default function VentesPage() {
   const load = vue === 'tickets' ? chargerTickets : chargerProduits;
 
   useEffect(() => {
+    // On attend la restauration des filtres : charger avant, c'est requêter
+    // une première période pour rien puis la remplacer à l'écran.
+    if (!filtresPrets) return;
     load();
     const ch = db
       .channel(uniqueChannel('ventes'))
-      .on('postgres_changes', { table: 'sales' }, load)
+      .on('postgres_changes', { table: 'sales' }, () => load(true))
       .subscribe();
     return () => db.removeChannel(ch);
-  }, [load]);
+  }, [load, filtresPrets]);
 
   const filtrees = useMemo(() => {
     const q = recherche.trim().toLowerCase();
@@ -209,6 +261,13 @@ export default function VentesPage() {
   const valides = filtrees.filter((v) => v.status !== 'annulee');
   const total = valides.reduce((s, v) => s + v.total_xof, 0);
   const encaisse = valides.reduce((s, v) => s + v.paid_xof, 0);
+
+  // Un coût à zéro sur une ligne vendue n'est pas « gratuit » : c'est un prix
+  // d'achat qu'on n'a jamais saisi. Le dire évite de lire 100 % de marge comme
+  // une bonne nouvelle.
+  const sansPrixAchat = parProduit
+    .filter((p) => p.chiffre > 0 && p.cout === 0)
+    .map((p) => p.product_name);
 
   const totalProduits = parProduit.reduce(
     (acc, p) => ({
@@ -288,7 +347,7 @@ export default function VentesPage() {
               {(['tickets', 'produits'] as Vue[]).map((v) => (
                 <button
                   key={v}
-                  onClick={() => setVue(v)}
+                  onClick={() => setFiltre('vue', v)}
                   className={vue === v ? 'btn-solid' : 'btn-outline'}
                 >
                   {v === 'tickets' ? 'Par ticket' : 'Par produit'}
@@ -299,7 +358,7 @@ export default function VentesPage() {
               {(['jour', 'mois', 'tout'] as Periode[]).map((p) => (
                 <button
                   key={p}
-                  onClick={() => setPeriode(p)}
+                  onClick={() => setFiltre('periode', p)}
                   className={periode === p ? 'btn-primary' : 'btn-outline'}
                 >
                   {p === 'jour' ? 'Aujourd’hui' : p === 'mois' ? 'Ce mois' : 'Tout'}
@@ -508,12 +567,33 @@ export default function VentesPage() {
 
       {vue === 'produits' ? (
         <div className="mt-3 space-y-1 text-[12px]" style={{ color: 'rgb(var(--muted))' }}>
+          {/* Le rapprochement, en toutes lettres : c'est la seule façon de
+              couper court au « les deux onglets ne disent pas la même chose ». */}
+          {tickets && (
+            <p>
+              Rapprochement de la période : {xof(tickets.lignes)} de lignes
+              {tickets.remise > 0 ? ` − ${xof(tickets.remise)} de remises` : ''} ={' '}
+              <span style={{ color: 'rgb(var(--ink))' }}>
+                {xof(tickets.encaisse)} encaissés
+              </span>
+              .
+            </p>
+          )}
           <p>
             Le chiffre par produit est la somme des lignes, avant remise de pied
             de ticket : il peut donc dépasser le total encaissé du même jour.
             {voitLesCouts &&
-              ' La marge est calculée sur le prix d’achat figé au moment de la vente.'}
+              ' Le coût, c’est le prix d’achat figé au moment de la vente, multiplié par les quantités sorties — la marge en découle.'}
           </p>
+          {voitLesCouts && sansPrixAchat.length > 0 && (
+            <p style={{ color: 'rgb(var(--warn))' }}>
+              {sansPrixAchat.length} produit{sansPrixAchat.length > 1 ? 's' : ''} sans
+              prix d’achat ({sansPrixAchat.slice(0, 3).join(', ')}
+              {sansPrixAchat.length > 3 ? '…' : ''}) : leur coût est compté à zéro,
+              donc leur marge s’affiche à 100 % et le total la surestime. À
+              renseigner dans Produits.
+            </p>
+          )}
           {tronque && (
             <p style={{ color: 'rgb(var(--warn))' }}>
               Historique trop long pour une seule requête : seules les ventes

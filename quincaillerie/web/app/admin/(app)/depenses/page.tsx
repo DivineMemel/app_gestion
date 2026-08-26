@@ -4,6 +4,7 @@ import { Plus, X, Trash2 } from 'lucide-react';
 import { db, uniqueChannel } from '@/lib/admin-db';
 import { useCanWrite } from '@/lib/member';
 import { PageHeader } from '@/components/admin/PageHeader';
+import { useFiltres } from '@/lib/filtres';
 import {
   abidjanMonthRange,
   abidjanToday,
@@ -28,7 +29,10 @@ export default function DepensesPage() {
 
   const [depenses, setDepenses] = useState<Expense[]>([]);
   const [postes, setPostes] = useState<Poste[]>([]);
-  const [periode, setPeriode] = useState<Periode>('mois');
+  // Mémorisée le temps de la session : revenir des ventes ne doit pas
+  // ramener la page sur une autre période sans le dire.
+  const [filtres, setFiltre, filtresPrets] = useFiltres('depenses', { periode: 'mois' });
+  const periode = filtres.periode as Periode;
   const [posteFiltre, setPosteFiltre] = useState('');
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -80,13 +84,16 @@ export default function DepensesPage() {
   }, [bornes, posteFiltre]);
 
   useEffect(() => {
+    // Charger avant la restauration du filtre, c'est requêter une première
+    // sélection pour rien puis la remplacer sous les yeux de l'utilisateur.
+    if (!filtresPrets) return;
     load();
     const ch = db
       .channel(uniqueChannel('depenses'))
       .on('postgres_changes', { table: 'expenses' }, load)
       .subscribe();
     return () => db.removeChannel(ch);
-  }, [load]);
+  }, [load, filtresPrets]);
 
   const total = depenses.reduce((s, d) => s + d.amount_xof, 0);
 
@@ -149,7 +156,7 @@ export default function DepensesPage() {
               {(['mois', 'mois_dernier', 'tout'] as Periode[]).map((p) => (
                 <button
                   key={p}
-                  onClick={() => setPeriode(p)}
+                  onClick={() => setFiltre('periode', p)}
                   className={periode === p ? 'btn-primary' : 'btn-outline'}
                 >
                   {p === 'mois'

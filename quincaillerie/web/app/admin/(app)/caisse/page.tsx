@@ -29,7 +29,13 @@ import {
 import { demarrerSync, type ResultatSync } from '@/lib/offline-sync';
 import { PageHeader } from '@/components/admin/PageHeader';
 import { Ticket, type TicketData, type ShopHeader } from '@/components/admin/Ticket';
-import { qty as fmtQty, xof } from '@/lib/format';
+import {
+  abidjanDateTimeLocal,
+  depuisDateTimeLocal,
+  dateTime,
+  qty as fmtQty,
+  xof,
+} from '@/lib/format';
 import {
   PAYMENT_LABELS,
   type CartLine,
@@ -80,6 +86,13 @@ export default function CaissePage() {
   const [moyen, setMoyen] = useState<PaymentMethod>('especes');
   const [regle, setRegle] = useState<string>('');
   const [note, setNote] = useState('');
+  /**
+   * Date et heure de la vente. `null` = maintenant, et c'est le cas courant :
+   * on ne demande pas au vendeur de confirmer l'heure qu'il est à chaque
+   * ticket. Le champ ne sert qu'à rattraper une vente notée sur papier — une
+   * panne de courant, un client servi pendant la coupure réseau.
+   */
+  const [dateVente, setDateVente] = useState<string | null>(null);
   const [encaissement, setEncaissement] = useState(false);
   const [ticket, setTicket] = useState<TicketData | null>(null);
   const [chercheClient, setChercheClient] = useState('');
@@ -101,8 +114,11 @@ export default function CaissePage() {
    * requête par frappe rendrait la caisse inutilisable dès que la connexion
    * faiblit — et au comptoir, elle faiblit.
    */
-  const charger = useCallback(async () => {
-    setChargement(true);
+  const charger = useCallback(async (silencieux = false) => {
+    // Le sondage de fond ne vide pas l'écran : sinon la page repasse par
+    // « Chargement… » toutes les quinze secondes, ce qui se lit comme un
+    // rechargement permanent.
+    if (!silencieux) setChargement(true);
 
     // Sans réseau, on sert la dernière photo du catalogue. Les prix peuvent
     // avoir bougé depuis — c'est le prix à payer pour continuer à vendre, et
@@ -169,7 +185,7 @@ export default function CaissePage() {
       setEnAttente(r.restantes);
       setBloquees(r.bloquees);
       // Une vente rejouée a bougé le stock : le catalogue affiché est périmé.
-      if (r.envoyees > 0) void charger();
+      if (r.envoyees > 0) void charger(true);
     };
     void fileAttente().then((f) => {
       setEnAttente(f.length);
@@ -205,6 +221,21 @@ export default function CaissePage() {
 
   const sousTotal = panier.reduce((s, l) => s + l.qty * l.unit_price_xof, 0);
   const total = Math.max(sousTotal - remise, 0);
+  /**
+   * `create_sale` ramène à « maintenant » toute vente datée de plus de 30 jours
+   * ou du futur — une horloge de téléphone déréglée ne doit pas inventer un
+   * mois de chiffre d'affaires. Le champ applique les mêmes bornes, pour que le
+   * refus se voie à la saisie plutôt que de se découvrir après coup.
+   */
+  const bornesVente = useMemo(
+    () => ({
+      min: abidjanDateTimeLocal(new Date(Date.now() - 30 * 86_400_000)),
+      max: abidjanDateTimeLocal(),
+    }),
+    [],
+  );
+  const venteDatee = dateVente ? depuisDateTimeLocal(dateVente) : null;
+
   const regleNum = Math.min(Math.max(Number(regle) || 0, 0), total);
   const reste = total - regleNum;
 
@@ -251,6 +282,7 @@ export default function CaissePage() {
     setNote('');
     setClientId(null);
     setMoyen('especes');
+    setDateVente(null);
   }
 
   /**
@@ -322,7 +354,10 @@ export default function CaissePage() {
     setErreur(null);
 
     const reference = nouvelleReference();
-    const venduLe = new Date().toISOString();
+    const maintenant = new Date().toISOString();
+    // Une saisie illisible ne doit pas horodater la vente n'importe quand :
+    // dans le doute, c'est maintenant.
+    const venduLe = (dateVente && depuisDateTimeLocal(dateVente)) || maintenant;
     const charge = {
       client_ref: reference,
       captured_offline: horsLigne,
@@ -361,7 +396,7 @@ export default function CaissePage() {
           essais: 0,
           derniere_erreur: null,
           bloquee: false,
-          cree_le: venduLe,
+          cree_le: maintenant,
         });
       } catch {
         // Si même l'écriture locale échoue, il ne faut SURTOUT pas laisser
@@ -406,7 +441,7 @@ export default function CaissePage() {
     const vente = data as { number: string; total_xof: number; paid_xof: number };
     setTicket({
       number: vente.number,
-      sold_at: new Date().toISOString(),
+      sold_at: venduLe,
       customer_name: client?.name ?? null,
       customer_phone: client?.phone ?? null,
       lines: panier.map((l) => ({
@@ -425,7 +460,7 @@ export default function CaissePage() {
     });
 
     vider();
-    charger(); // le stock a bougé
+    charger(true); // le stock a bougé, mais sans vider l'écran
     setEncaissement(false);
   }
 
@@ -435,7 +470,7 @@ export default function CaissePage() {
         title="Caisse"
         subtitle={`${catalogue.length} articles au catalogue`}
         actions={
-          <button onClick={charger} className="btn-outline" disabled={chargement}>
+          <button onClick={() => charger()} className="btn-outline" disabled={chargement}>
             <RefreshCw
               className={`h-4 w-4 ${chargement ? 'animate-spin' : ''}`}
               strokeWidth={1.75}
@@ -731,6 +766,49 @@ export default function CaissePage() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Horodatage — replié par défaut : neuf ventes sur dix se font
+                  à l'instant où on les encaisse, et un champ de date de plus
+                  sur le chemin du ticket ralentit tout le comptoir. */}
+              <div>
+                {dateVente === null ? (
+                  <button
+                    type="button"
+                    onClick={() => setDateVente(abidjanDateTimeLocal())}
+                    className="text-[12px] underline"
+                    style={{ color: 'rgb(var(--muted))' }}
+                  >
+                    Vente enregistrée maintenant — dater autrement
+                  </button>
+                ) : (
+                  <div className="space-y-1.5">
+                    <label className="label">Date et heure de la vente</label>
+                    <input
+                      type="datetime-local"
+                      className="input"
+                      value={dateVente}
+                      min={bornesVente.min}
+                      max={bornesVente.max}
+                      onChange={(e) => setDateVente(e.target.value)}
+                    />
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-[12px]" style={{ color: 'rgb(var(--muted))' }}>
+                        {venteDatee
+                          ? `Sera enregistrée au ${dateTime(venteDatee)}`
+                          : 'Date incomplète : la vente sera horodatée à maintenant.'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setDateVente(null)}
+                        className="shrink-0 text-[12px] underline"
+                        style={{ color: 'rgb(var(--muted))' }}
+                      >
+                        maintenant
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div

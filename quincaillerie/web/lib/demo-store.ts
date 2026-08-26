@@ -409,6 +409,17 @@ function creerVente(t: Tables, p: Row): { data: unknown; error: { message: strin
   const id = uid();
   const num = numero(t, 'sales', 'V', 5);
   const maintenant = new Date().toISOString();
+  // Même règle que `create_sale` en base : la caisse peut dater une vente,
+  // mais pas au-delà de trente jours en arrière ni dans le futur — une horloge
+  // déréglée ne doit pas déplacer du chiffre d'affaires d'un mois sur l'autre.
+  const vendueLe = (() => {
+    const brut = p.sold_at ? new Date(String(p.sold_at)) : null;
+    if (!brut || Number.isNaN(brut.getTime())) return maintenant;
+    const t = brut.getTime();
+    const now = Date.now();
+    if (t > now + 3_600_000 || t < now - 30 * 86_400_000) return maintenant;
+    return brut.toISOString();
+  })();
 
   let sousTotal = 0;
   const lignes: Row[] = [];
@@ -493,7 +504,7 @@ function creerVente(t: Tables, p: Row): { data: unknown; error: { message: strin
     subtotal_xof: sousTotal, discount_xof: remise, total_xof: total, paid_xof: paye,
     payment_method: p.payment_method ?? 'especes', status: statut,
     channel: p.channel ?? 'comptoir', note: p.note ?? null, sold_by: null,
-    sold_at: maintenant, created_at: maintenant,
+    sold_at: vendueLe, created_at: maintenant,
   });
   t.sale_items.push(...lignes);
   for (const mv of mouvements) {
@@ -504,7 +515,7 @@ function creerVente(t: Tables, p: Row): { data: unknown; error: { message: strin
     t.payments.push({
       id: uid(), customer_id: p.customer_id ?? null, sale_id: id, amount_xof: paye,
       method: p.payment_method === 'credit' ? 'especes' : (p.payment_method ?? 'especes'),
-      note: `Encaissement ${num}`, received_by: null, paid_at: maintenant,
+      note: `Encaissement ${num}`, received_by: null, paid_at: vendueLe,
     });
   }
 

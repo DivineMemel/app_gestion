@@ -4,6 +4,7 @@ import { Plus, Search, X, Trash2, PackagePlus } from 'lucide-react';
 import { db, uniqueChannel } from '@/lib/admin-db';
 import { useCanSeeCosts, useCanWrite } from '@/lib/member';
 import { PageHeader } from '@/components/admin/PageHeader';
+import { useFiltres } from '@/lib/filtres';
 import { ImageUpload } from '@/components/admin/ImageUpload';
 import { ChampUnite } from '@/components/admin/ChampUnite';
 import { UNITES_STOCK, libellesProposes } from '@/lib/unites';
@@ -56,7 +57,8 @@ export default function ProduitsPage() {
   const [lignes, setLignes] = useState<Ligne[]>([]);
   const [rayons, setRayons] = useState<Category[]>([]);
   const [recherche, setRecherche] = useState('');
-  const [rayonFiltre, setRayonFiltre] = useState('');
+  const [filtres, setFiltre] = useFiltres('produits', { rayon: '' });
+  const rayonFiltre = filtres.rayon;
   const [erreur, setErreur] = useState<string | null>(null);
   const [chargement, setChargement] = useState(true);
 
@@ -284,7 +286,7 @@ export default function ProduitsPage() {
         <select
           className="select w-auto"
           value={rayonFiltre}
-          onChange={(e) => setRayonFiltre(e.target.value)}
+          onChange={(e) => setFiltre('rayon', e.target.value)}
         >
           <option value="">Tous les rayons</option>
           {rayons.map((r) => (

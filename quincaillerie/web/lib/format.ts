@@ -104,6 +104,26 @@ export function abidjanToday(ref = new Date()): string {
   return ref.toISOString().slice(0, 10);
 }
 
+/**
+ * `YYYY-MM-DDTHH:mm` à l'heure d'Abidjan, format attendu par un
+ * `<input type="datetime-local">`. Abidjan étant à UTC+0 toute l'année, l'ISO
+ * tronqué EST l'heure locale — et le résultat ne dépend pas du fuseau de
+ * l'appareil, ce qui compte pour un téléphone mal réglé.
+ */
+export function abidjanDateTimeLocal(ref = new Date()): string {
+  return ref.toISOString().slice(0, 16);
+}
+
+/**
+ * L'inverse : la valeur saisie est lue comme une heure d'Abidjan, jamais comme
+ * l'heure du téléphone. `null` si la saisie n'est pas une date — un champ vidé
+ * ne doit pas produire une vente horodatée « Invalid Date ».
+ */
+export function depuisDateTimeLocal(valeur: string): string | null {
+  const d = new Date(`${valeur}:00Z`);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 export function slugify(s: string): string {
   return s
     .normalize('NFD')

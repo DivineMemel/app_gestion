@@ -4,6 +4,7 @@ import { X, Phone, ShoppingBag, Check } from 'lucide-react';
 import { db, uniqueChannel } from '@/lib/admin-db';
 import { useCanWrite } from '@/lib/member';
 import { PageHeader } from '@/components/admin/PageHeader';
+import { useFiltres } from '@/lib/filtres';
 import { dateTime, qty as fmtQty, xof } from '@/lib/format';
 import {
   ORDER_STATUS_LABELS,
@@ -43,7 +44,10 @@ export default function CommandesPage() {
   const peutEcrire = useCanWrite('commandes');
 
   const [commandes, setCommandes] = useState<Order[]>([]);
-  const [filtre, setFiltre] = useState<OrderStatus | 'toutes'>('nouvelle');
+  const [filtres, setFiltres, filtresPrets] = useFiltres('commandes', {
+    statut: 'nouvelle',
+  });
+  const filtre = filtres.statut as OrderStatus | 'toutes';
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
 
@@ -72,13 +76,16 @@ export default function CommandesPage() {
   }, [filtre]);
 
   useEffect(() => {
+    // Charger avant la restauration du filtre, c'est requêter une première
+    // sélection pour rien puis la remplacer sous les yeux de l'utilisateur.
+    if (!filtresPrets) return;
     load();
     const ch = db
       .channel(uniqueChannel('commandes'))
       .on('postgres_changes', { table: 'orders' }, load)
       .subscribe();
     return () => db.removeChannel(ch);
-  }, [load]);
+  }, [load, filtresPrets]);
 
   async function ouvrir(c: Order) {
     setOuverte(c);
@@ -152,7 +159,7 @@ export default function CommandesPage() {
             {FILTRES.map((f) => (
               <button
                 key={f}
-                onClick={() => setFiltre(f)}
+                onClick={() => setFiltres('statut', f)}
                 className={filtre === f ? 'btn-primary' : 'btn-outline'}
               >
                 {f === 'toutes' ? 'Toutes' : ORDER_STATUS_LABELS[f]}
