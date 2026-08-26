@@ -5,6 +5,10 @@ import { db, uniqueChannel } from '@/lib/admin-db';
 import { useCanWrite } from '@/lib/member';
 import { PageHeader } from '@/components/admin/PageHeader';
 import { useFiltres } from '@/lib/filtres';
+import { FiltrePeriode } from '@/components/admin/FiltrePeriode';
+import { filtrerInstants, libellePeriode, type Periode } from '@/lib/periode';
+
+const RACCOURCIS: Periode[] = ['jour', 'semaine', 'mois', 'tout'];
 import { dateTime, qty as fmtQty, xof } from '@/lib/format';
 import {
   ORDER_STATUS_LABELS,
@@ -46,8 +50,13 @@ export default function CommandesPage() {
   const [commandes, setCommandes] = useState<Order[]>([]);
   const [filtres, setFiltres, filtresPrets] = useFiltres('commandes', {
     statut: 'nouvelle',
+    periode: 'tout',
+    debut: '',
+    fin: '',
   });
   const filtre = filtres.statut as OrderStatus | 'toutes';
+  const periode = filtres.periode as Periode;
+  const { debut, fin } = filtres;
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
 
@@ -68,12 +77,13 @@ export default function CommandesPage() {
       .order('created_at', { ascending: false })
       .limit(200);
     if (filtre !== 'toutes') q = q.eq('status', filtre);
+    q = filtrerInstants(q, 'created_at', periode, debut, fin);
 
     const { data, error } = await q;
     setErreur(error?.message ?? null);
     setCommandes((data ?? []) as Order[]);
     setChargement(false);
-  }, [filtre]);
+  }, [filtre, periode, debut, fin]);
 
   useEffect(() => {
     // Charger avant la restauration du filtre, c'est requêter une première
@@ -149,22 +159,33 @@ export default function CommandesPage() {
     <>
       <PageHeader
         title="Commandes en ligne"
-        subtitle={
+        subtitle={`${
           filtre === 'nouvelle'
             ? `${nouvelles} commande${nouvelles > 1 ? 's' : ''} à traiter`
             : `${commandes.length} commande${commandes.length > 1 ? 's' : ''}`
-        }
+        } · ${libellePeriode(periode, debut, fin)}`}
         actions={
-          <div className="flex flex-wrap gap-1">
-            {FILTRES.map((f) => (
-              <button
-                key={f}
-                onClick={() => setFiltres('statut', f)}
-                className={filtre === f ? 'btn-primary' : 'btn-outline'}
-              >
-                {f === 'toutes' ? 'Toutes' : ORDER_STATUS_LABELS[f]}
-              </button>
-            ))}
+          <div className="flex flex-col gap-2 md:items-end">
+            <div className="flex flex-wrap gap-1">
+              {FILTRES.map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFiltres('statut', f)}
+                  className={filtre === f ? 'btn-primary' : 'btn-outline'}
+                >
+                  {f === 'toutes' ? 'Toutes' : ORDER_STATUS_LABELS[f]}
+                </button>
+              ))}
+            </div>
+            <FiltrePeriode
+              options={RACCOURCIS}
+              periode={periode}
+              debut={debut}
+              fin={fin}
+              onPeriode={(p) => setFiltres('periode', p)}
+              onDebut={(v) => setFiltres('debut', v)}
+              onFin={(v) => setFiltres('fin', v)}
+            />
           </div>
         }
       />

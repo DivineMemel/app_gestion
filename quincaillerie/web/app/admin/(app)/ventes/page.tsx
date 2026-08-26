@@ -6,15 +6,14 @@ import { useCanSeeCosts, useCanWrite, useMember } from '@/lib/member';
 import { useFiltres } from '@/lib/filtres';
 import { PageHeader } from '@/components/admin/PageHeader';
 import { Ticket, type ShopHeader, type TicketData } from '@/components/admin/Ticket';
+import { dateShort, qty as fmtQty, timeShort, xof } from '@/lib/format';
+import { FiltrePeriode } from '@/components/admin/FiltrePeriode';
 import {
-  abidjanDayRange,
-  abidjanMonthRange,
-  abidjanToday,
-  dateShort,
-  qty as fmtQty,
-  timeShort,
-  xof,
-} from '@/lib/format';
+  bornesDates,
+  bornesInstants,
+  libellePeriode,
+  type Periode,
+} from '@/lib/periode';
 import {
   SALE_STATUS_LABELS,
   type PaymentMethod,
@@ -24,8 +23,10 @@ import {
   type VenteProduitJour,
 } from '@/lib/types';
 
-type Periode = 'jour' | 'mois' | 'tout';
 type Vue = 'tickets' | 'produits';
+
+/** Raccourcis proposés ici ; « Dates » s'ajoute de lui-même. */
+const RACCOURCIS: Periode[] = ['jour', 'semaine', 'mois', 'tout'];
 
 /**
  * Plafond de lignes ramenées pour la vue « par produit ».
@@ -90,9 +91,12 @@ export default function VentesPage() {
   const [filtres, setFiltre, filtresPrets] = useFiltres('ventes', {
     vue: 'tickets',
     periode: 'jour',
+    debut: '',
+    fin: '',
   });
   const vue = filtres.vue as Vue;
   const periode = filtres.periode as Periode;
+  const { debut, fin } = filtres;
 
   const [ventes, setVentes] = useState<Sale[]>([]);
   const [produits, setProduits] = useState<VenteProduitJour[]>([]);
@@ -119,11 +123,9 @@ export default function VentesPage() {
       .order('sold_at', { ascending: false })
       .limit(300);
 
-    if (periode !== 'tout') {
-      const { start, end } =
-        periode === 'jour' ? abidjanDayRange() : abidjanMonthRange();
-      q = q.gte('sold_at', start).lte('sold_at', end);
-    }
+    const bornes = bornesInstants(periode, debut, fin);
+    if (bornes?.start) q = q.gte('sold_at', bornes.start);
+    if (bornes?.end) q = q.lte('sold_at', bornes.end);
 
     const [v, s] = await Promise.all([
       q,
@@ -138,7 +140,7 @@ export default function VentesPage() {
     setVentes((v.data ?? []) as Sale[]);
     if (s.data) setShop(s.data as ShopHeader);
     setChargement(false);
-  }, [periode]);
+  }, [periode, debut, fin]);
 
   /**
    * Les ventes agrégées par produit viennent de `v_ventes_produits`, au grain
@@ -156,11 +158,11 @@ export default function VentesPage() {
       .order('jour', { ascending: false })
       .limit(MAX_LIGNES_PRODUITS);
 
-    if (periode !== 'tout') {
-      const debut =
-        periode === 'jour' ? abidjanToday() : abidjanMonthRange().start.slice(0, 10);
-      q = q.gte('jour', debut).lte('jour', abidjanToday());
-    }
+    // `jour` est une colonne `date` : on la compare à des dates nues, sinon la
+    // dernière journée de la plage saute.
+    const jours = bornesDates(periode, debut, fin);
+    if (jours?.debut) q = q.gte('jour', jours.debut);
+    if (jours?.fin) q = q.lte('jour', jours.fin);
 
     // Les tickets de la MÊME période, pour pouvoir expliquer l'écart entre la
     // somme des lignes et ce qui est réellement rentré en caisse.
@@ -169,11 +171,9 @@ export default function VentesPage() {
       .select('subtotal_xof, discount_xof, total_xof, status, sold_at')
       .order('sold_at', { ascending: false })
       .limit(MAX_TICKETS_RAPPROCHES);
-    if (periode !== 'tout') {
-      const { start, end } =
-        periode === 'jour' ? abidjanDayRange() : abidjanMonthRange();
-      qt = qt.gte('sold_at', start).lte('sold_at', end);
-    }
+    const bornesTickets = bornesInstants(periode, debut, fin);
+    if (bornesTickets?.start) qt = qt.gte('sold_at', bornesTickets.start);
+    if (bornesTickets?.end) qt = qt.lte('sold_at', bornesTickets.end);
 
     const [{ data, error }, t] = await Promise.all([q, qt]);
     let lignes = (data ?? []) as VenteProduitJour[];
@@ -203,7 +203,7 @@ export default function VentesPage() {
     setErreur(error ? messageProduits(error.message) : null);
     setProduits(lignes);
     setChargement(false);
-  }, [periode]);
+  }, [periode, debut, fin]);
 
   const load = vue === 'tickets' ? chargerTickets : chargerProduits;
 
@@ -282,14 +282,18 @@ export default function VentesPage() {
   const taux = (marge: number, chiffre: number) =>
     chiffre > 0 ? `${((marge / chiffre) * 100).toFixed(0)} %` : '—';
 
+  // Sur une plage libre, le bouton actif ne dit pas ce qu'on regarde : le
+  // sous-titre le répète en clair.
+  const rappelPeriode = periode === 'dates' ? ` · ${libellePeriode(periode, debut, fin)}` : '';
+
   const sousTitre =
     vue === 'tickets'
-      ? `${valides.length} vente${valides.length > 1 ? 's' : ''} · ${xof(total)} · ${xof(encaisse)} encaissés`
+      ? `${valides.length} vente${valides.length > 1 ? 's' : ''} · ${xof(total)} · ${xof(encaisse)} encaissés${rappelPeriode}`
       : `${parProduit.length} produit${parProduit.length > 1 ? 's' : ''} · ${xof(totalProduits.chiffre)}${
           voitLesCouts
             ? ` · marge ${xof(totalProduits.marge)} (${taux(totalProduits.marge, totalProduits.chiffre)})`
             : ''
-        }`;
+        }${rappelPeriode}`;
 
   /** Reconstruit le ticket depuis les lignes stockées, pas depuis le catalogue
    *  actuel : un reçu réimprimé doit montrer les prix du jour de la vente. */
@@ -354,17 +358,15 @@ export default function VentesPage() {
                 </button>
               ))}
             </div>
-            <div className="flex gap-1">
-              {(['jour', 'mois', 'tout'] as Periode[]).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setFiltre('periode', p)}
-                  className={periode === p ? 'btn-primary' : 'btn-outline'}
-                >
-                  {p === 'jour' ? 'Aujourd’hui' : p === 'mois' ? 'Ce mois' : 'Tout'}
-                </button>
-              ))}
-            </div>
+            <FiltrePeriode
+              options={RACCOURCIS}
+              periode={periode}
+              debut={debut}
+              fin={fin}
+              onPeriode={(p) => setFiltre('periode', p)}
+              onDebut={(v) => setFiltre('debut', v)}
+              onFin={(v) => setFiltre('fin', v)}
+            />
           </>
         }
       />

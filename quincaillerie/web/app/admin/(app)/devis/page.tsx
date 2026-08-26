@@ -4,6 +4,11 @@ import { Plus, X, Trash2, Search, FileText, ArrowRightLeft, Printer } from 'luci
 import { db, uniqueChannel } from '@/lib/admin-db';
 import { useCanWrite, useMember } from '@/lib/member';
 import { PageHeader } from '@/components/admin/PageHeader';
+import { FiltrePeriode } from '@/components/admin/FiltrePeriode';
+import { useFiltres } from '@/lib/filtres';
+import { filtrerInstants, libellePeriode, type Periode } from '@/lib/periode';
+
+const RACCOURCIS: Periode[] = ['jour', 'semaine', 'mois', 'tout'];
 import { FeuilleA4, type LigneDoc } from '@/components/admin/FeuilleA4';
 import { dateShort, qty as fmtQty, xof } from '@/lib/format';
 import {
@@ -79,15 +84,31 @@ export default function DevisPage() {
   const [regle, setRegle] = useState('');
   const [moyen, setMoyen] = useState<PaymentMethod>('especes');
 
+  const [filtres, setFiltre, filtresPrets] = useFiltres('devis', {
+    periode: 'tout',
+    debut: '',
+    fin: '',
+  });
+  const periode = filtres.periode as Periode;
+  const { debut, fin } = filtres;
+
   const load = useCallback(async () => {
+    // Les bornes s'appliquent à la requête, pas à l'affichage : filtrer après
+    // coup ne trierait que ce que la limite a déjà laissé passer.
     const [d, p, c, s] = await Promise.all([
-      db
-        .from('quotes')
-        .select(
-          'id, number, customer_id, customer_name, customer_phone, subtotal_xof, discount_xof, total_xof, status, valid_until, note, converted_sale_id, created_at, customers(name, phone)',
-        )
-        .order('created_at', { ascending: false })
-        .limit(200),
+      filtrerInstants(
+        db
+          .from('quotes')
+          .select(
+            'id, number, customer_id, customer_name, customer_phone, subtotal_xof, discount_xof, total_xof, status, valid_until, note, converted_sale_id, created_at, customers(name, phone)',
+          )
+          .order('created_at', { ascending: false })
+          .limit(200),
+        'created_at',
+        periode,
+        debut,
+        fin,
+      ),
       db
         .from('products')
         .select(
@@ -108,13 +129,14 @@ export default function DevisPage() {
   }, []);
 
   useEffect(() => {
+    if (!filtresPrets) return;
     load();
     const ch = db
       .channel(uniqueChannel('devis'))
       .on('postgres_changes', { table: 'quotes' }, load)
       .subscribe();
     return () => db.removeChannel(ch);
-  }, [load]);
+  }, [load, filtresPrets]);
 
   const resultats = useMemo(() => {
     const q = recherche.trim().toLowerCase();
@@ -281,14 +303,25 @@ export default function DevisPage() {
     <>
       <PageHeader
         title="Devis"
-        subtitle={`${devis.length} devis`}
+        subtitle={`${devis.length} devis · ${libellePeriode(periode, debut, fin)}`}
         actions={
-          peutEcrire ? (
-            <button onClick={ouvrirNouveau} className="btn-primary">
-              <Plus className="h-4 w-4" strokeWidth={2} />
-              Nouveau devis
-            </button>
-          ) : null
+          <>
+            <FiltrePeriode
+              options={RACCOURCIS}
+              periode={periode}
+              debut={debut}
+              fin={fin}
+              onPeriode={(p) => setFiltre('periode', p)}
+              onDebut={(v) => setFiltre('debut', v)}
+              onFin={(v) => setFiltre('fin', v)}
+            />
+            {peutEcrire && (
+              <button onClick={ouvrirNouveau} className="btn-primary">
+                <Plus className="h-4 w-4" strokeWidth={2} />
+                Nouveau devis
+              </button>
+            )}
+          </>
         }
       />
 

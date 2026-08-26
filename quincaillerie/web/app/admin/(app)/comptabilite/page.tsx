@@ -3,35 +3,80 @@ import { useCallback, useEffect, useState } from 'react';
 import { TrendingUp, TrendingDown, Package, Wallet } from 'lucide-react';
 import { db, uniqueChannel } from '@/lib/admin-db';
 import { PageHeader } from '@/components/admin/PageHeader';
+import { FiltrePeriode } from '@/components/admin/FiltrePeriode';
+import { useFiltres } from '@/lib/filtres';
+import { bornesDates, libellePeriode, type Periode } from '@/lib/periode';
 import { monthLabel, qty as fmtQty, xof } from '@/lib/format';
-import type { MonthlyPnl } from '@/lib/types';
+import type { MonthlyPnl, VenteProduitJour } from '@/lib/types';
+
+const RACCOURCIS: Periode[] = ['jour', 'semaine', 'mois', 'mois_dernier', 'tout'];
 
 type TopProduit = {
   product_id: string | null;
   product_name: string;
   qty_base_vendue: number;
   chiffre_xof: number;
+  marge_xof: number;
   nb_ventes: number;
 };
 
 export default function ComptabilitePage() {
   const [mois, setMois] = useState<MonthlyPnl[]>([]);
   const [top, setTop] = useState<TopProduit[]>([]);
+  const [filtres, setFiltre, filtresPrets] = useFiltres('comptabilite', {
+    periode: 'mois',
+    debut: '',
+    fin: '',
+  });
+  const periode = filtres.periode as Periode;
+  const { debut, fin } = filtres;
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    // Le palmarès était figé sur 90 jours glissants : impossible de répondre à
+    // « qu'est-ce qui a marché en juillet ». Il suit maintenant la période
+    // choisie, et il vient de la vue qui porte aussi la marge.
+    let q = db
+      .from('v_ventes_produits')
+      .select('product_id, product_name, qty_base, chiffre_xof, marge_xof, nb_ventes')
+      .limit(5_000);
+    const jours = bornesDates(periode, debut, fin);
+    if (jours?.debut) q = q.gte('jour', jours.debut);
+    if (jours?.fin) q = q.lte('jour', jours.fin);
+
     const [p, t] = await Promise.all([
       db.from('v_monthly_pnl').select('*').limit(18),
-      db.from('v_top_products').select('*').limit(10),
+      q,
     ]);
+
+    // La vue est au grain jour × produit : on recompose le total par article.
+    const par = new Map<string, TopProduit>();
+    for (const l of (t.data ?? []) as VenteProduitJour[]) {
+      const cle = l.product_id ?? `nom:${l.product_name}`;
+      const e = par.get(cle) ?? {
+        product_id: l.product_id,
+        product_name: l.product_name,
+        qty_base_vendue: 0,
+        chiffre_xof: 0,
+        marge_xof: 0,
+        nb_ventes: 0,
+      };
+      e.qty_base_vendue += Number(l.qty_base);
+      e.chiffre_xof += Number(l.chiffre_xof);
+      e.marge_xof += Number(l.marge_xof ?? 0);
+      e.nb_ventes += Number(l.nb_ventes);
+      par.set(cle, e);
+    }
+
     setErreur(p.error?.message ?? t.error?.message ?? null);
     setMois((p.data ?? []) as MonthlyPnl[]);
-    setTop((t.data ?? []) as TopProduit[]);
+    setTop([...par.values()].sort((a, b) => b.chiffre_xof - a.chiffre_xof).slice(0, 10));
     setChargement(false);
-  }, []);
+  }, [periode, debut, fin]);
 
   useEffect(() => {
+    if (!filtresPrets) return;
     load();
     const ch = db
       .channel(uniqueChannel('compta'))
@@ -39,7 +84,7 @@ export default function ComptabilitePage() {
       .on('postgres_changes', { table: 'expenses' }, load)
       .subscribe();
     return () => db.removeChannel(ch);
-  }, [load]);
+  }, [load, filtresPrets]);
 
   const courant = mois[0];
   // Le taux de marge se lit sur le chiffre, pas sur le coût : c'est la part de
@@ -54,6 +99,17 @@ export default function ComptabilitePage() {
       <PageHeader
         title="Comptabilité"
         subtitle={courant ? monthLabel(courant.mois) : 'Compte d’exploitation mensuel'}
+        actions={
+          <FiltrePeriode
+            options={RACCOURCIS}
+            periode={periode}
+            debut={debut}
+            fin={fin}
+            onPeriode={(p) => setFiltre('periode', p)}
+            onDebut={(v) => setFiltre('debut', v)}
+            onFin={(v) => setFiltre('fin', v)}
+          />
+        }
       />
 
       {erreur && (
@@ -166,11 +222,13 @@ export default function ComptabilitePage() {
 
             {/* ---------- Meilleures ventes ---------- */}
             <section>
-              <h2 className="eyebrow mb-2">Meilleures ventes · 90 jours</h2>
+              <h2 className="eyebrow mb-2">
+                Meilleures ventes · {libellePeriode(periode, debut, fin)}
+              </h2>
               <div className="surface">
                 {top.length === 0 ? (
                   <p className="p-6 text-center text-sm" style={{ color: 'rgb(var(--muted))' }}>
-                    Pas encore de ventes.
+                    Aucune vente sur cette période.
                   </p>
                 ) : (
                   <ul>
@@ -189,7 +247,7 @@ export default function ComptabilitePage() {
                             style={{ color: 'rgb(var(--muted))' }}
                           >
                             {fmtQty(t.qty_base_vendue)} unités · {t.nb_ventes} vente
-                            {t.nb_ventes > 1 ? 's' : ''}
+                            {t.nb_ventes > 1 ? 's' : ''} · marge {xof(t.marge_xof)}
                           </div>
                         </div>
                         <span className="tnum shrink-0 text-[13px] font-semibold">

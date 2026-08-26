@@ -5,17 +5,14 @@ import { db, uniqueChannel } from '@/lib/admin-db';
 import { useCanWrite } from '@/lib/member';
 import { PageHeader } from '@/components/admin/PageHeader';
 import { useFiltres } from '@/lib/filtres';
-import {
-  abidjanMonthRange,
-  abidjanToday,
-  dateShort,
-  monthLabel,
-  xof,
-} from '@/lib/format';
+import { abidjanToday, dateShort, xof } from '@/lib/format';
+import { FiltrePeriode } from '@/components/admin/FiltrePeriode';
+import { bornesDates, libellePeriode, type Periode } from '@/lib/periode';
 import { PAYMENT_LABELS, type Expense, type PaymentMethod } from '@/lib/types';
 
 type Poste = { id: string; name: string; active: boolean };
-type Periode = 'mois' | 'mois_dernier' | 'tout';
+
+const RACCOURCIS: Periode[] = ['mois', 'mois_dernier', 'tout'];
 
 const MOYENS: Exclude<PaymentMethod, 'credit'>[] = [
   'especes',
@@ -31,8 +28,13 @@ export default function DepensesPage() {
   const [postes, setPostes] = useState<Poste[]>([]);
   // Mémorisée le temps de la session : revenir des ventes ne doit pas
   // ramener la page sur une autre période sans le dire.
-  const [filtres, setFiltre, filtresPrets] = useFiltres('depenses', { periode: 'mois' });
+  const [filtres, setFiltre, filtresPrets] = useFiltres('depenses', {
+    periode: 'mois',
+    debut: '',
+    fin: '',
+  });
   const periode = filtres.periode as Periode;
+  const { debut, fin } = filtres;
   const [posteFiltre, setPosteFiltre] = useState('');
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -48,15 +50,8 @@ export default function DepensesPage() {
     note: '',
   });
 
-  const bornes = useMemo(() => {
-    if (periode === 'tout') return null;
-    const ref = new Date();
-    if (periode === 'mois_dernier') {
-      ref.setUTCMonth(ref.getUTCMonth() - 1);
-    }
-    const { start, end } = abidjanMonthRange(ref);
-    return { debut: start.slice(0, 10), fin: end.slice(0, 10), ref: start };
-  }, [periode]);
+  // `spent_on` est une colonne `date` : bornes en dates nues.
+  const bornes = useMemo(() => bornesDates(periode, debut, fin), [periode, debut, fin]);
 
   const load = useCallback(async () => {
     let q = db
@@ -69,7 +64,8 @@ export default function DepensesPage() {
 
     // `spent_on` est une colonne `date` : on compare à des dates nues, pas à
     // des timestamps, sinon le dernier jour du mois saute.
-    if (bornes) q = q.gte('spent_on', bornes.debut).lte('spent_on', bornes.fin);
+    if (bornes?.debut) q = q.gte('spent_on', bornes.debut);
+    if (bornes?.fin) q = q.lte('spent_on', bornes.fin);
     if (posteFiltre) q = q.eq('category_id', posteFiltre);
 
     const [d, c] = await Promise.all([
@@ -152,21 +148,15 @@ export default function DepensesPage() {
         subtitle={`${depenses.length} dépense${depenses.length > 1 ? 's' : ''} · ${xof(total)}`}
         actions={
           <>
-            <div className="flex gap-1">
-              {(['mois', 'mois_dernier', 'tout'] as Periode[]).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setFiltre('periode', p)}
-                  className={periode === p ? 'btn-primary' : 'btn-outline'}
-                >
-                  {p === 'mois'
-                    ? 'Ce mois'
-                    : p === 'mois_dernier'
-                      ? 'Mois dernier'
-                      : 'Tout'}
-                </button>
-              ))}
-            </div>
+            <FiltrePeriode
+              options={RACCOURCIS}
+              periode={periode}
+              debut={debut}
+              fin={fin}
+              onPeriode={(p) => setFiltre('periode', p)}
+              onDebut={(v) => setFiltre('debut', v)}
+              onFin={(v) => setFiltre('fin', v)}
+            />
             {peutEcrire && (
               <button onClick={() => setOuvert(true)} className="btn-primary">
                 <Plus className="h-4 w-4" strokeWidth={2} />
@@ -192,7 +182,7 @@ export default function DepensesPage() {
 
       {bornes && (
         <p className="mb-4 text-[13px]" style={{ color: 'rgb(var(--muted))' }}>
-          {monthLabel(bornes.ref)}
+          {libellePeriode(periode, debut, fin)}
         </p>
       )}
 

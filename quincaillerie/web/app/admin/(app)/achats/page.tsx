@@ -4,6 +4,11 @@ import { Plus, X, Trash2, PackageCheck, AlertTriangle, Search } from 'lucide-rea
 import { db, uniqueChannel } from '@/lib/admin-db';
 import { useCanSeeCosts, useCanWrite } from '@/lib/member';
 import { PageHeader } from '@/components/admin/PageHeader';
+import { FiltrePeriode } from '@/components/admin/FiltrePeriode';
+import { useFiltres } from '@/lib/filtres';
+import { filtrerInstants, libellePeriode, type Periode } from '@/lib/periode';
+
+const RACCOURCIS: Periode[] = ['semaine', 'mois', 'mois_dernier', 'tout'];
 import { dateShort, qty as fmtQty, xof } from '@/lib/format';
 import {
   PURCHASE_STATUS_LABELS,
@@ -68,15 +73,31 @@ export default function AchatsPage() {
   const [detail, setDetail] = useState<PurchaseOrder | null>(null);
   const [lignesBon, setLignesBon] = useState<LigneBon[] | null>(null);
 
+  const [filtres, setFiltre, filtresPrets] = useFiltres('achats', {
+    periode: 'tout',
+    debut: '',
+    fin: '',
+  });
+  const periode = filtres.periode as Periode;
+  const { debut, fin } = filtres;
+
   const load = useCallback(async () => {
+    // Les bornes s'appliquent à la requête, pas à l'affichage : filtrer après
+    // coup ne trierait que ce que la limite a déjà laissé passer.
     const [b, f, p, m] = await Promise.all([
-      db
-        .from('purchase_orders')
-        .select(
-          'id, number, supplier_id, status, total_xof, note, ordered_at, received_at, created_at, suppliers(name)',
-        )
-        .order('created_at', { ascending: false })
-        .limit(100),
+      filtrerInstants(
+        db
+          .from('purchase_orders')
+          .select(
+            'id, number, supplier_id, status, total_xof, note, ordered_at, received_at, created_at, suppliers(name)',
+          )
+          .order('created_at', { ascending: false })
+          .limit(100),
+        'created_at',
+        periode,
+        debut,
+        fin,
+      ),
       db.from('suppliers').select('*').eq('active', true).order('name'),
       db
         .from('products')
@@ -95,13 +116,14 @@ export default function AchatsPage() {
   }, []);
 
   useEffect(() => {
+    if (!filtresPrets) return;
     load();
     const ch = db
       .channel(uniqueChannel('achats'))
       .on('postgres_changes', { table: 'purchase_orders' }, load)
       .subscribe();
     return () => db.removeChannel(ch);
-  }, [load]);
+  }, [load, filtresPrets]);
 
   const resultats = useMemo(() => {
     const q = recherche.trim().toLowerCase();
@@ -256,22 +278,33 @@ export default function AchatsPage() {
     <>
       <PageHeader
         title="Commandes fournisseur"
-        subtitle="On commande, puis on réceptionne. Pour la marchandise arrivée sans commande, passe par Arrivages."
+        subtitle={`On commande, puis on réceptionne · ${libellePeriode(periode, debut, fin)}. Pour la marchandise arrivée sans commande, passe par Arrivages.`}
         actions={
-          peutEcrire ? (
-            <>
-              {manquants.length > 0 && (
-                <button onClick={depuisManquants} className="btn-outline">
-                  <AlertTriangle className="h-4 w-4" strokeWidth={1.75} />
-                  Depuis les manquants ({manquants.length})
+          <>
+            <FiltrePeriode
+              options={RACCOURCIS}
+              periode={periode}
+              debut={debut}
+              fin={fin}
+              onPeriode={(p) => setFiltre('periode', p)}
+              onDebut={(v) => setFiltre('debut', v)}
+              onFin={(v) => setFiltre('fin', v)}
+            />
+            {peutEcrire && (
+              <>
+                {manquants.length > 0 && (
+                  <button onClick={depuisManquants} className="btn-outline">
+                    <AlertTriangle className="h-4 w-4" strokeWidth={1.75} />
+                    Depuis les manquants ({manquants.length})
+                  </button>
+                )}
+                <button onClick={ouvrirNouveau} className="btn-primary">
+                  <Plus className="h-4 w-4" strokeWidth={2} />
+                  Nouveau bon
                 </button>
-              )}
-              <button onClick={ouvrirNouveau} className="btn-primary">
-                <Plus className="h-4 w-4" strokeWidth={2} />
-                Nouveau bon
-              </button>
-            </>
-          ) : null
+              </>
+            )}
+          </>
         }
       />
 

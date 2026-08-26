@@ -3,6 +3,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Search, ChevronDown, ChevronRight, ShieldAlert } from 'lucide-react';
 import { db, MODE_DEMO } from '@/lib/admin-db';
 import { PageHeader } from '@/components/admin/PageHeader';
+import { FiltrePeriode } from '@/components/admin/FiltrePeriode';
+import { useFiltres } from '@/lib/filtres';
+import { bornesInstants, libellePeriode, type Periode } from '@/lib/periode';
 import { dateTime } from '@/lib/format';
 import { ROLE_LABELS } from '@/lib/permissions';
 import type { AuditEntry } from '@/lib/types';
@@ -62,12 +65,23 @@ const TABLE_LABELS: Record<string, string> = {
 
 const LIMITE = 300;
 
+// Un audit se consulte à rebours d'un incident daté : « qu'est-ce qui s'est
+// passé ce jour-là ». D'où « Tout » par défaut, mais une plage disponible.
+const RACCOURCIS: Periode[] = ['jour', 'semaine', 'mois', 'tout'];
+
 export default function JournalPage() {
   const [lignes, setLignes] = useState<AuditEntry[]>([]);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
   const [recherche, setRecherche] = useState('');
   const [action, setAction] = useState<Action | 'toutes'>('toutes');
+  const [filtres, setFiltre, filtresPrets] = useFiltres('journal', {
+    periode: 'tout',
+    debut: '',
+    fin: '',
+  });
+  const periode = filtres.periode as Periode;
+  const { debut, fin } = filtres;
   const [seulementEchecs, setSeulementEchecs] = useState(false);
   const [ouvert, setOuvert] = useState<number | null>(null);
 
@@ -84,15 +98,20 @@ export default function JournalPage() {
     if (action !== 'toutes') q = q.eq('action', action);
     if (seulementEchecs) q = q.is('ok', false);
 
+    const bornes = bornesInstants(periode, debut, fin);
+    if (bornes?.start) q = q.gte('at', bornes.start);
+    if (bornes?.end) q = q.lte('at', bornes.end);
+
     const { data, error } = await q;
     setErreur(error?.message ?? null);
     setLignes((data ?? []) as AuditEntry[]);
     setChargement(false);
-  }, [action, seulementEchecs]);
+  }, [action, seulementEchecs, periode, debut, fin]);
 
   useEffect(() => {
+    if (!filtresPrets) return;
     load();
-  }, [load]);
+  }, [load, filtresPrets]);
 
   const filtrees = useMemo(() => {
     const q = recherche.trim().toLowerCase();
@@ -110,7 +129,18 @@ export default function JournalPage() {
     <>
       <PageHeader
         title="Journal"
-        subtitle={`Les ${LIMITE} dernières écritures passées par l’administration.`}
+        subtitle={`Les ${LIMITE} dernières écritures passées par l’administration · ${libellePeriode(periode, debut, fin)}.`}
+        actions={
+          <FiltrePeriode
+            options={RACCOURCIS}
+            periode={periode}
+            debut={debut}
+            fin={fin}
+            onPeriode={(p) => setFiltre('periode', p)}
+            onDebut={(v) => setFiltre('debut', v)}
+            onFin={(v) => setFiltre('fin', v)}
+          />
+        }
       />
 
       {MODE_DEMO && (
