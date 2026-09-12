@@ -5,9 +5,17 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { Wordmark } from '@/components/Wordmark';
 
+// Le serveur dit lequel des deux champs est faux : l'écran le répète, et
+// propose la sortie qui correspond — créer un accès si l'adresse est inconnue,
+// un lien par mail si c'est le mot de passe qui manque.
 const REASONS: Record<string, string> = {
   pending: 'Ton compte attend la validation du patron.',
   disabled: 'Ce compte a été désactivé.',
+  unknown_email: 'Aucun compte avec cet e-mail.',
+  bad_password: 'Mot de passe incorrect.',
+  email_manquant:
+    'E-mail manquant. Saisis ton e-mail — ou, pour l’accès de secours, le mot de passe patron seul.',
+  // Ancien motif : un déploiement peut encore le renvoyer le temps d'une mise à jour.
   bad_credentials: 'E-mail ou mot de passe incorrect.',
 };
 
@@ -19,12 +27,14 @@ function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [motif, setMotif] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    setMotif(null);
     try {
       const res = await fetch('/api/admin/login', {
         method: 'POST',
@@ -47,6 +57,7 @@ function LoginForm() {
         );
         return;
       }
+      setMotif(json?.reason ?? null);
       setError(REASONS[json?.reason] ?? json?.reason ?? 'Connexion impossible.');
     } catch {
       setError('Connexion perdue. Vérifie le réseau.');
@@ -91,16 +102,50 @@ function LoginForm() {
       />
 
       {error && (
-        <p className="mt-4 text-sm" style={{ color: 'rgb(var(--danger))' }}>
-          {error}
-        </p>
+        <div className="mt-4 text-sm" style={{ color: 'rgb(var(--danger))' }}>
+          <p>{error}</p>
+          {motif === 'unknown_email' && (
+            <p className="mt-1">
+              Vérifie l’adresse, ou{' '}
+              <Link href="/admin/register" className="font-semibold underline">
+                demande un accès
+              </Link>
+              .
+            </p>
+          )}
+          {motif === 'bad_password' && (
+            <p className="mt-1">
+              <Link
+                href={`/admin/mot-de-passe-oublie?email=${encodeURIComponent(email)}`}
+                className="font-semibold underline"
+              >
+                Recevoir un lien par e-mail
+              </Link>{' '}
+              pour en choisir un nouveau.
+            </p>
+          )}
+        </div>
       )}
 
       <button type="submit" className="btn-primary mt-6 w-full" disabled={busy}>
         {busy ? 'Connexion…' : 'Se connecter'}
       </button>
 
-      <p className="mt-5 text-center text-[13px]" style={{ color: 'rgb(var(--muted))' }}>
+      <p className="mt-4 text-center text-[13px]">
+        <Link
+          href={
+            email
+              ? `/admin/mot-de-passe-oublie?email=${encodeURIComponent(email)}`
+              : '/admin/mot-de-passe-oublie'
+          }
+          className="underline"
+          style={{ color: 'rgb(var(--muted))' }}
+        >
+          Mot de passe oublié ?
+        </Link>
+      </p>
+
+      <p className="mt-3 text-center text-[13px]" style={{ color: 'rgb(var(--muted))' }}>
         Pas encore de compte ?{' '}
         <Link href="/admin/register" className="font-semibold underline">
           Créer un accès

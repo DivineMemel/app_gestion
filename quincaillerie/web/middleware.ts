@@ -2,7 +2,15 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { verifySession, sessionSecret } from '@/lib/session';
 
-const PUBLIC_ADMIN_ROUTES = ['/admin/login', '/admin/register'];
+// `/admin/mot-de-passe*` doit rester public : on y arrive justement parce qu'on
+// ne peut PAS se connecter. Sans ça, le lien reçu par mail renverrait vers
+// l'écran de connexion, qui est exactement le mur qu'on cherche à contourner.
+const PUBLIC_ADMIN_ROUTES = [
+  '/admin/login',
+  '/admin/register',
+  '/admin/mot-de-passe',
+  '/admin/mot-de-passe-oublie',
+];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

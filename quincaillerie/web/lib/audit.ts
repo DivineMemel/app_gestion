@@ -42,6 +42,12 @@ function rowIds(data: unknown): string[] | null {
 
 export type AuditEntry = {
   action: string;
+  /**
+   * Libellé de l'auteur quand `member` vaut null. Sans lui, tout ce qui vient
+   * de l'extérieur s'affichait « Inscription publique » dans le journal — y
+   * compris une demande de mot de passe oublié, qui n'est pas une inscription.
+   */
+  actor?: string;
   table: string;
   filters?: unknown;
   values?: unknown;
@@ -64,7 +70,7 @@ export async function logAudit(
   try {
     await admin.from('audit_log').insert({
       member_id: member?.id ?? null,
-      member_name: member?.name ?? 'Inscription publique',
+      member_name: member?.name ?? entry.actor ?? 'Inscription publique',
       member_role: member?.roles.join(', ') ?? null,
       action: entry.action,
       table_name: entry.table,

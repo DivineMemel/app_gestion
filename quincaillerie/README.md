@@ -149,7 +149,20 @@ coupure réseau, un stock décrémenté sans vente en face.
   jamais transmis.
 - **Frein anti-force brute** sur `/api/admin/login`, compté en base par e-mail
   et par IP. Un délai fixe ne freinait rien : mille requêtes parallèles
-  attendaient chacune 500 ms dans leur coin.
+  attendaient chacune 500 ms dans leur coin. Le même frein, sur des compteurs
+  séparés, plafonne l'émission des liens de réinitialisation.
+- **L'écran de connexion dit lequel des deux champs est faux** — « Aucun compte
+  avec cet e-mail » ou « Mot de passe incorrect ». Le flou habituel protège la
+  liste des comptes d'un site grand public ; ici cette liste, c'est l'équipe de
+  la boutique, que tout le monde connaît. Le flou ne cachait donc rien et
+  coûtait dix minutes à qui s'était trompé d'adresse. Ce qu'il faut empêcher —
+  essayer des milliers d'adresses ou de mots de passe — reste empêché par le
+  frein ci-dessus.
+- **Mot de passe oublié par e-mail** : lien à usage unique, valable une heure.
+  C'est l'**empreinte** du jeton qui est stockée (`password_resets`), jamais le
+  jeton : une fuite de cette table ne donne accès à aucun compte. Un lien
+  consommé reste visible une semaine — c'est ce qui permet de répondre à
+  « quelqu'un a changé mon mot de passe hier ».
 - **Journal d'audit** (`audit_log`) : toute mutation passée par
   `/api/admin/db` est tracée avec son auteur. `stock_movements` racontait
   l'histoire de la marchandise, pas celle des décisions.
@@ -207,7 +220,7 @@ sans toucher une ligne de code.
 
 1. Créer un projet **dédié** (ne pas réutiliser celui d'Agenda ou de MUSE).
 2. SQL Editor → passer les migrations **dans l'ordre**, une par une, de
-   `001_init.sql` à `011_ventes_par_produit.sql`.
+   `001_init.sql` à `012_mot_de_passe_oublie.sql`.
 3. Créer un bucket Storage **public** nommé `media`.
 4. Project Settings → API → récupérer l'URL, la clé publique et la clé secrète.
 
@@ -252,7 +265,34 @@ npm run dev
 le bootstrap. Les autres comptes se créent via `/admin/register` puis se
 valident depuis `/admin/comptes`.
 
-### 3. Notifications push (facultatif)
+### 3. Mot de passe oublié (e-mail)
+
+Un employé qui perd son mot de passe demande un lien depuis
+`/admin/mot-de-passe-oublie`. Sans clé d'envoi, la page le dit franchement et
+renvoie vers le patron, qui pose un mot de passe provisoire depuis Comptes —
+rien ne casse, la fonctionnalité est simplement inactive.
+
+**Quel fournisseur** — les deux ont une offre gratuite très au-delà de nos
+quelques mails par mois ; la différence est ailleurs :
+
+| | Volume gratuit | Ce qu'il exige |
+|---|---|---|
+| **Brevo** | 300 / jour | Une seule adresse d'expéditeur validée. Écrit à qui l'on veut. |
+| **Resend** | 3 000 / mois | Sans nom de domaine vérifié, n'écrit **qu'au titulaire du compte**. |
+
+Donc **Brevo** tant que NADAL n'a pas de domaine, Resend le jour où il en a un.
+Une seule clé suffit :
+
+```bash
+BREVO_API_KEY=xkeysib-…        # app.brevo.com → SMTP & API → API keys
+MAIL_FROM=nadalservices97@gmail.com   # doit être VALIDÉE chez le fournisseur
+NEXT_PUBLIC_SITE_URL=https://…        # sinon le lien du mail ne mène nulle part
+```
+
+Le lien est construit sur `NEXT_PUBLIC_SITE_URL` : c'est la variable à ne pas
+oublier en production, sinon les mails partent avec un lien vers `localhost`.
+
+### 4. Notifications push (facultatif)
 
 ```bash
 npx web-push generate-vapid-keys
@@ -377,6 +417,12 @@ un Postgres jetable (PGlite) coûterait moins cher que ce doublon.
 `unit_price_xof` envoyé par la caisse : c'est voulu (on négocie), mais rien ne
 mesure encore l'écart au prix catalogue. Sans cette mesure, une marge qui fond
 ne se distingue pas d'un fournisseur qui augmente.
+
+**Le patron maître ne peut pas réinitialiser son mot de passe par mail.**
+`ADMIN_PASSWORD` est une variable d'environnement, elle ne correspond à aucune
+ligne en base : il n'y a rien à quoi envoyer un lien. C'est cohérent — c'est un
+accès de secours, qui se change sur Vercel. Le patron qui veut un vrai compte
+récupérable s'en ouvre un depuis Comptes.
 
 **Le chiffre par produit ignore la remise de pied de ticket.** `sales.discount_xof`
 porte sur la vente entière : la répartir entre les lignes demanderait une règle
